@@ -117,7 +117,6 @@ def logo_position_style():
 
 def scroll_draw(df, duration):
     container = st.empty()
-    start_time = time.time()
     bg_html = ""
 
     if background_file:
@@ -134,21 +133,15 @@ def scroll_draw(df, duration):
         logo_b64 = base64.b64encode(logo_file.read()).decode()
         logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="logo-overlay" style="{logo_position_style()} width: {logo_width}px;">'
 
-    if drumroll_file:
-        drumroll_b64 = base64.b64encode(drumroll_file.read()).decode()
-        st.markdown(f"""
-            <audio autoplay loop style='display:none'>
-                <source src="data:audio/mp3;base64,{drumroll_b64}" type="audio/mp3">
-            </audio>
-        """, unsafe_allow_html=True)
-
+    start_time = time.time()
     while True:
         elapsed = time.time() - start_time
-        if elapsed >= duration:
+        if elapsed > duration:
             break
         sample = df.sample(1).iloc[0]
         scroll_text = f"🔄 {sample['Name']} ({sample['Account Name']})"
         remain = max(0.0, duration - elapsed)
+
         html = f"""
         <div class='draw-area'>
             {bg_html}
@@ -185,10 +178,17 @@ def display_winner(winner):
 
 if df is not None:
     if st.button("🎲 Start Draw"):
-        with st.spinner("Drawing..."):
+        with st.spinner("Loading background and preparing draw..."):
             available_df = df.copy()
             for i in range(winner_count):
                 st.subheader(f"Winner #{i+1}")
+                if drumroll_file:
+                    drumroll_b64 = base64.b64encode(drumroll_file.read()).decode()
+                    st.markdown(f"""
+                        <audio autoplay loop style='display:none'>
+                            <source src="data:audio/mp3;base64,{drumroll_b64}" type="audio/mp3">
+                        </audio>
+                    """, unsafe_allow_html=True)
                 scroll_draw(df, total_draw_time)
                 while True:
                     selected = available_df.sample(1).iloc[0]
