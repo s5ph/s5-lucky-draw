@@ -131,3 +131,11 @@ if st.sidebar.button("💾 Save Settings"):
     with open(SETTINGS_FILE, "w") as f:
         json.dump(new_settings, f)
     st.sidebar.success("Settings saved successfully!")
+
+# Add control buttons to sidebar
+if df is not None:
+    if st.sidebar.button("🎲 Start Draw"):
+        st.session_state["start_draw"] = True
+
+    if st.sidebar.button("🔁 Restart Draw"):
+        st.experimental_rerun()
