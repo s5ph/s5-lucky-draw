@@ -11,6 +11,18 @@ import os
 
 st.set_page_config(page_title="🎰 S5.com Lucky Draw", layout="wide")
 SETTINGS_FILE = "s5_draw_settings.json"
+ASSETS_DIR = "uploaded_assets"
+os.makedirs(ASSETS_DIR, exist_ok=True)
+
+def save_file(uploaded_file, name):
+    path = os.path.join(ASSETS_DIR, name)
+    with open(path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return path
+
+def load_file(name):
+    path = os.path.join(ASSETS_DIR, name)
+    return open(path, "rb") if os.path.exists(path) else None
 
 # Load saved settings if available
 if os.path.exists(SETTINGS_FILE):
@@ -57,12 +69,29 @@ st.markdown("""
 
 st.markdown("<h1 style='text-align: center;'>🎰 S5.COM Lucky Draw</h1><hr>", unsafe_allow_html=True)
 
-# Upload inputs
-logo_file = st.file_uploader("Upload Logo (optional)", type=["png", "jpg", "jpeg"])
-background_file = st.file_uploader("Upload Background (Image/GIF/Video)", type=["png", "jpg", "jpeg", "gif", "mp4"])
-drumroll_file = st.file_uploader("Upload Drum Roll Sound (optional)", type=["mp3", "wav"])
-crash_file = st.file_uploader("Upload Crash Sound (optional)", type=["mp3", "wav"])
-applause_file = st.file_uploader("Upload Applause Sound (optional)", type=["mp3", "wav"])
+# Upload inputs and persist them
+uploaded_files = {
+    "logo": st.file_uploader("Upload Logo (optional)", type=["png", "jpg", "jpeg"]),
+    "background": st.file_uploader("Upload Background (Image/GIF/Video)", type=["png", "jpg", "jpeg", "gif", "mp4"]),
+    "drumroll": st.file_uploader("Upload Drum Roll Sound (optional)", type=["mp3", "wav"]),
+    "crash": st.file_uploader("Upload Crash Sound (optional)", type=["mp3", "wav"]),
+    "applause": st.file_uploader("Upload Applause Sound (optional)", type=["mp3", "wav"])
+}
+
+assets = {}
+for key, file in uploaded_files.items():
+    if file:
+        save_file(file, key)
+        assets[key] = open(os.path.join(ASSETS_DIR, key), "rb")
+    else:
+        assets[key] = load_file(key)
+
+if st.button("🗑️ Clear Uploaded Files"):
+    for key in uploaded_files:
+        path = os.path.join(ASSETS_DIR, key)
+        if os.path.exists(path):
+            os.remove(path)
+    st.success("Uploaded files cleared. Please refresh.")
 
 csv_file = st.file_uploader("Upload CSV File", type="csv")
 if csv_file:
@@ -102,106 +131,3 @@ if st.sidebar.button("💾 Save Settings"):
     with open(SETTINGS_FILE, "w") as f:
         json.dump(new_settings, f)
     st.sidebar.success("Settings saved successfully!")
-
-winner_log = []
-drawn_indices = set()
-
-def logo_position_style():
-    return {
-        "top": "top: 20px; left: 50%; transform: translateX(-50%);",
-        "bottom": "bottom: 20px; left: 50%; transform: translateX(-50%);",
-        "left": "top: 50%; left: 20px; transform: translateY(-50%);",
-        "right": "top: 50%; right: 20px; transform: translateY(-50%);",
-        "center": "top: 50%; left: 50%; transform: translate(-50%, -50%);"
-    }[logo_position]
-
-def scroll_draw(df, duration):
-    container = st.empty()
-    bg_html = ""
-
-    if background_file:
-        bg_bytes = background_file.read()
-        bg_base64 = base64.b64encode(bg_bytes).decode()
-        mime = background_file.type
-        if "image" in mime or "gif" in mime:
-            bg_html = f'<img src="data:{mime};base64,{bg_base64}" class="background" style="opacity:{background_opacity}">' 
-        elif "video" in mime:
-            bg_html = f'<video autoplay loop muted class="background" style="opacity:{background_opacity}"><source src="data:{mime};base64,{bg_base64}"></video>'
-
-    logo_html = ""
-    if logo_file:
-        logo_b64 = base64.b64encode(logo_file.read()).decode()
-        logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="logo-overlay" style="{logo_position_style()} width: {logo_width}px;">'
-
-    start_time = time.time()
-    while True:
-        elapsed = time.time() - start_time
-        if elapsed > duration:
-            break
-        sample = df.sample(1).iloc[0]
-        scroll_text = f"🔄 {sample['Name']} ({sample['Account Name']})"
-        remain = max(0.0, duration - elapsed)
-
-        html = f"""
-        <div class='draw-area'>
-            {bg_html}
-            {logo_html}
-            <div class='winner-text' style='font-size:{font_size}px; color:{font_color}'>{scroll_text}</div>
-            <div class='timer' style='font-size:{timer_size}px; color:{timer_color}'>⏳ Time Left: {remain:.1f} sec</div>
-        </div>
-        """
-        container.markdown(html, unsafe_allow_html=True)
-        time.sleep(0.1)
-
-def display_winner(winner):
-    summary = f"🎉 <b>ID:</b> {winner['ID']}<br><b>Name:</b> {winner['Name']}<br><b>Account:</b> {winner['Account Name']}"
-    st.markdown(f"<div style='text-align:center; font-size:1.8rem; color:{font_color}'>{summary}</div>", unsafe_allow_html=True)
-    st.balloons()
-
-    if crash_file:
-        crash_b64 = base64.b64encode(crash_file.read()).decode()
-        st.markdown("""
-            <audio autoplay style='display:none'>
-                <source src="data:audio/mp3;base64,""" + crash_b64 + """" type="audio/mp3">
-            </audio>
-        """, unsafe_allow_html=True)
-
-    if applause_file:
-        applause_b64 = base64.b64encode(applause_file.read()).decode()
-        st.markdown("""
-            <audio autoplay style='display:none'>
-                <source src="data:audio/mp3;base64,""" + applause_b64 + """" type="audio/mp3">
-            </audio>
-        """, unsafe_allow_html=True)
-
-    winner_log.append(summary)
-
-if df is not None:
-    if st.button("🎲 Start Draw"):
-        with st.spinner("Loading background and preparing draw..."):
-            available_df = df.copy()
-            for i in range(winner_count):
-                st.subheader(f"Winner #{i+1}")
-                scroll_draw(df, total_draw_time)
-                while True:
-                    selected = available_df.sample(1).iloc[0]
-                    if not prevent_duplicates or selected.name not in drawn_indices:
-                        break
-                drawn_indices.add(selected.name)
-                display_winner(selected)
-                time.sleep(0.5)
-
-    if st.button("🔁 Restart Draw"):
-        st.experimental_rerun()
-
-    if winner_log:
-        st.markdown("---")
-        st.subheader("📜 Winner Log")
-        for item in winner_log:
-            st.markdown(item, unsafe_allow_html=True)
-
-        export = df.sample(n=winner_count).to_csv(index=False)
-        export_b64 = base64.b64encode(export.encode()).decode()
-        st.markdown(f'<a href="data:file/csv;base64,{export_b64}" download="winners.csv">📥 Download Winners CSV</a>', unsafe_allow_html=True)
-else:
-    st.info("📤 Please upload a valid CSV file to begin.")
