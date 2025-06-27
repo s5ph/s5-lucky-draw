@@ -160,17 +160,17 @@ def display_winner(winner):
 
     if crash_file:
         crash_b64 = base64.b64encode(crash_file.read()).decode()
-        st.markdown(f"""
+        st.markdown("""
             <audio autoplay style='display:none'>
-                <source src="data:audio/mp3;base64,{crash_b64}" type="audio/mp3">
+                <source src="data:audio/mp3;base64,""" + crash_b64 + """" type="audio/mp3">
             </audio>
         """, unsafe_allow_html=True)
 
     if applause_file:
         applause_b64 = base64.b64encode(applause_file.read()).decode()
-        st.markdown(f"""
+        st.markdown("""
             <audio autoplay style='display:none'>
-                <source src="data:audio/mp3;base64,{applause_b64}" type="audio/mp3">
+                <source src="data:audio/mp3;base64,""" + applause_b64 + """" type="audio/mp3">
             </audio>
         """, unsafe_allow_html=True)
 
@@ -182,13 +182,6 @@ if df is not None:
             available_df = df.copy()
             for i in range(winner_count):
                 st.subheader(f"Winner #{i+1}")
-                if drumroll_file:
-                    drumroll_b64 = base64.b64encode(drumroll_file.read()).decode()
-                    st.markdown(f"""
-                        <audio autoplay loop style='display:none'>
-                            <source src="data:audio/mp3;base64,{drumroll_b64}" type="audio/mp3">
-                        </audio>
-                    """, unsafe_allow_html=True)
                 scroll_draw(df, total_draw_time)
                 while True:
                     selected = available_df.sample(1).iloc[0]
