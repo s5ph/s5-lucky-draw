@@ -134,8 +134,14 @@ if st.sidebar.button("💾 Save Settings"):
 
 # Add control buttons to sidebar
 if df is not None:
-    if st.sidebar.button("🎲 Start Draw"):
-        st.session_state["start_draw"] = True
+    start_col, restart_col = st.sidebar.columns([1, 1])
+    with start_col:
+        if st.button("🎲 Start Draw"):
+            st.session_state["start_draw"] = True
+    with restart_col:
+        if "start_draw" in st.session_state:
+            del st.session_state["start_draw"]
+            st.success("Draw session reset. Press 'Start Draw' again to restart.")
 
-    if st.sidebar.button("🔁 Restart Draw"):
-        st.experimental_rerun()
+# The rest of the application logic should follow here to execute the draw, countdown, sound playback, etc.
+# This must be implemented after defining UI and loading configuration/data.
