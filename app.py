@@ -1,4 +1,4 @@
-# S5.COM Lucky Draw – Fully Integrated with Audio and Controls (Fixed and Enhanced)
+# S5.COM Lucky Draw – Fully Integrated with Audio, Visuals, and Controls (Enhanced)
 
 import streamlit as st
 import pandas as pd
@@ -14,7 +14,8 @@ SETTINGS_FILE = "draw_settings.json"
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
 def save_uploaded_file(upload, name):
-    path = os.path.join(ASSETS_DIR, name)
+    ext = upload.name.split(".")[-1]
+    path = os.path.join(ASSETS_DIR, f"{name}.{ext}")
     with open(path, "wb") as f:
         f.write(upload.getbuffer())
     return path
@@ -34,8 +35,9 @@ st.markdown("""
         .draw-container { position: relative; height: 600px; overflow: hidden; text-align: center; }
         .background-img, .background-vid { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.5; }
         .logo-img { position: absolute; z-index: 2; }
-        .winner-name { position: relative; z-index: 3; font-weight: bold; margin-top: 200px; }
-        .timer { position: relative; z-index: 3; margin-top: 10px; }
+        .winner-name { position: relative; z-index: 3; font-weight: bold; margin-top: 200px; animation: fadein 1s; }
+        .timer { position: relative; z-index: 3; margin-top: 10px; font-weight: bold; }
+        @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
     </style>
 """, unsafe_allow_html=True)
 
@@ -47,11 +49,11 @@ drumroll = st.file_uploader("Drumroll Sound", type=["mp3", "wav"])
 crash = st.file_uploader("Crash Effect Sound", type=["mp3", "wav"])
 applause = st.file_uploader("Applause Sound", type=["mp3", "wav"])
 
-logo_path = save_uploaded_file(logo, "logo") if logo else os.path.join(ASSETS_DIR, "logo")
-bg_path = save_uploaded_file(bg, "bg") if bg else os.path.join(ASSETS_DIR, "bg")
-drumroll_path = save_uploaded_file(drumroll, "drumroll") if drumroll else os.path.join(ASSETS_DIR, "drumroll")
-crash_path = save_uploaded_file(crash, "crash") if crash else os.path.join(ASSETS_DIR, "crash")
-applause_path = save_uploaded_file(applause, "applause") if applause else os.path.join(ASSETS_DIR, "applause")
+logo_path = save_uploaded_file(logo, "logo") if logo else os.path.join(ASSETS_DIR, "logo.png")
+bg_path = save_uploaded_file(bg, "bg") if bg else os.path.join(ASSETS_DIR, "bg.png")
+drumroll_path = save_uploaded_file(drumroll, "drumroll") if drumroll else os.path.join(ASSETS_DIR, "drumroll.mp3")
+crash_path = save_uploaded_file(crash, "crash") if crash else os.path.join(ASSETS_DIR, "crash.mp3")
+applause_path = save_uploaded_file(applause, "applause") if applause else os.path.join(ASSETS_DIR, "applause.mp3")
 
 saved = load_settings()
 st.sidebar.header("Settings")
@@ -84,6 +86,7 @@ if start and csv:
     else:
         scroll_placeholder = st.empty()
         final_placeholder = st.empty()
+        audio_placeholder = st.empty()
         names = df["Name"].tolist()
 
         with open(bg_path, "rb") as bg_file:
@@ -93,13 +96,13 @@ if start and csv:
             l_ext = logo_path.split(".")[-1].lower()
             b64_logo = base64.b64encode(logo_file.read()).decode()
 
-        bg_html = f'<video class="background-vid" autoplay loop muted><source src="data:video/mp4;base64,{b64_bg}" type="video/mp4"></video>' if b_ext == "mp4" else f'<img src="data:image/{b_ext};base64,{b64_bg}" class="background-img">'
+        bg_html = f'<video class="background-vid" autoplay loop muted><source src="data:video/{b_ext};base64,{b64_bg}" type="video/{b_ext}"></video>' if b_ext == "mp4" else f'<img src="data:image/{b_ext};base64,{b64_bg}" class="background-img">'
         logo_html = f'<img src="data:image/{l_ext};base64,{b64_logo}" class="logo-img" style="width: {logo_width}px; top: 10px; left: 10px;">'
 
         if os.path.exists(drumroll_path):
             with open(drumroll_path, "rb") as f:
                 b64_drum = base64.b64encode(f.read()).decode()
-                scroll_placeholder.markdown(f'<audio autoplay loop><source src="data:audio/mp3;base64,{b64_drum}" type="audio/mp3"></audio>', unsafe_allow_html=True)
+                audio_placeholder.markdown(f'<audio autoplay loop id="drumroll" style="display:none;"><source src="data:audio/mp3;base64,{b64_drum}" type="audio/mp3"></audio>', unsafe_allow_html=True)
 
         start_time = time.time()
         while (elapsed := time.time() - start_time) < draw_time:
@@ -120,12 +123,13 @@ if start and csv:
         winner_audio = ""
         if os.path.exists(crash_path):
             with open(crash_path, "rb") as f:
-                winner_audio += f'<audio autoplay><source src="data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}" type="audio/mp3"></audio>'
+                winner_audio += f'<audio autoplay id="crash"><source src="data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}" type="audio/mp3"></audio>'
         if os.path.exists(applause_path):
             with open(applause_path, "rb") as f:
-                winner_audio += f'<audio autoplay><source src="data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}" type="audio/mp3"></audio>'
+                winner_audio += f'<audio autoplay id="applause"><source src="data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}" type="audio/mp3"></audio>'
 
         scroll_placeholder.empty()
+        audio_placeholder.empty()
         final_placeholder.markdown(f"""
             <div class="draw-container">
                 {bg_html}
