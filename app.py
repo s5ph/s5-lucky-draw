@@ -1,4 +1,4 @@
-# S5.COM Lucky Draw – Rebuilt from Scratch
+# S5.COM Lucky Draw – Fully Integrated with Audio and Controls
 
 import streamlit as st
 import pandas as pd
@@ -51,10 +51,16 @@ st.title("🎰 S5.COM Lucky Draw")
 logo = st.file_uploader("Logo", type=["png", "jpg"])
 bg = st.file_uploader("Background (image/gif/mp4)", type=["png", "jpg", "gif", "mp4"])
 csv = st.file_uploader("CSV File", type="csv")
+drumroll = st.file_uploader("Drumroll Sound", type=["mp3", "wav"])
+crash = st.file_uploader("Crash Effect Sound", type=["mp3", "wav"])
+applause = st.file_uploader("Applause Sound", type=["mp3", "wav"])
 
 # === Load or Save Files ===
 logo_path = save_uploaded_file(logo, "logo") if logo else os.path.join(ASSETS_DIR, "logo")
 bg_path = save_uploaded_file(bg, "bg") if bg else os.path.join(ASSETS_DIR, "bg")
+drumroll_path = save_uploaded_file(drumroll, "drumroll") if drumroll else os.path.join(ASSETS_DIR, "drumroll")
+crash_path = save_uploaded_file(crash, "crash") if crash else os.path.join(ASSETS_DIR, "crash")
+applause_path = save_uploaded_file(applause, "applause") if applause else os.path.join(ASSETS_DIR, "applause")
 
 # === Settings ===
 saved = load_settings()
@@ -65,6 +71,7 @@ font_color = st.sidebar.color_picker("Font Color", saved.get("font_color", "#FFF
 font_size = st.sidebar.slider("Font Size", 20, 80, saved.get("font_size", 40))
 timer_color = st.sidebar.color_picker("Timer Color", saved.get("timer_color", "#FFDD00"))
 logo_width = st.sidebar.slider("Logo Width (px)", 100, 400, saved.get("logo_width", 150))
+volume = st.sidebar.slider("Sound Volume (%)", 0, 100, saved.get("volume", 70))
 
 if st.sidebar.button("💾 Save Settings"):
     save_settings({
@@ -73,14 +80,13 @@ if st.sidebar.button("💾 Save Settings"):
         "font_color": font_color,
         "font_size": font_size,
         "timer_color": timer_color,
-        "logo_width": logo_width
+        "logo_width": logo_width,
+        "volume": volume
     })
     st.sidebar.success("Saved settings!")
 
-# === Control ===
 start = st.button("🎲 Start Draw")
 
-# === Run Draw ===
 if start and csv:
     df = pd.read_csv(csv)
     if not {"Name", "Account Name"}.issubset(df.columns):
@@ -90,6 +96,7 @@ if start and csv:
         names = df["Name"].tolist()
         start_time = time.time()
         elapsed = 0
+
         with open(bg_path, "rb") as bg_file:
             bg_data = bg_file.read()
         with open(logo_path, "rb") as logo_file:
@@ -103,6 +110,14 @@ if start and csv:
         bg_html = f'<video class="background-vid" autoplay loop muted><source src="data:video/mp4;base64,{b64_bg}" type="video/mp4"></video>' if b_ext == "mp4" else f'<img src="data:image/{b_ext};base64,{b64_bg}" class="background-img">'
         logo_html = f'<img src="data:image/{l_ext};base64,{b64_logo}" class="logo-img" style="width: {logo_width}px; top: 10px; left: 10px;">'
 
+        audio_html = ""
+        if os.path.exists(drumroll_path):
+            with open(drumroll_path, "rb") as f:
+                b64_drumroll = base64.b64encode(f.read()).decode()
+                audio_html = f'<audio autoplay loop id="drum"><source src="data:audio/mpeg;base64,{b64_drumroll}" type="audio/mpeg"></audio>'
+
+        placeholder.markdown(audio_html, unsafe_allow_html=True)
+
         while elapsed < draw_time:
             name = random.choice(names)
             time_left = max(0, draw_time - elapsed)
@@ -115,16 +130,27 @@ if start and csv:
                     <div class="timer" style="color:{timer_color}; font-size:24px">⏳ {time_left:.1f}s</div>
                 </div>
             """, unsafe_allow_html=True)
-
             time.sleep(0.1)
             elapsed = time.time() - start_time
 
         winners = df.sample(n=winner_count)
         final_names = "<br>".join([f"🎉 {r['Name']} - {r['Account Name']}" for _, r in winners.iterrows()])
+
+        win_audio = ""
+        if os.path.exists(crash_path):
+            with open(crash_path, "rb") as f:
+                b64_crash = base64.b64encode(f.read()).decode()
+                win_audio += f'<audio autoplay id="crash"><source src="data:audio/mpeg;base64,{b64_crash}" type="audio/mpeg"></audio>'
+        if os.path.exists(applause_path):
+            with open(applause_path, "rb") as f:
+                b64_applause = base64.b64encode(f.read()).decode()
+                win_audio += f'<audio autoplay id="applause"><source src="data:audio/mpeg;base64,{b64_applause}" type="audio/mpeg"></audio>'
+
         placeholder.markdown(f"""
             <div class="draw-container">
                 {bg_html}
                 {logo_html}
                 <div class="winner-name" style="color:{font_color}; font-size:{font_size + 10}px">{final_names}</div>
             </div>
+            {win_audio}
         """, unsafe_allow_html=True)
