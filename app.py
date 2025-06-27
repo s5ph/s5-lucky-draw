@@ -33,15 +33,15 @@ def save_settings(settings):
 
 fullscreen_toggle = st.sidebar.checkbox("🖥️ Fullscreen Mode", value=True)
 
-fullscreen_style = """
+fullscreen_style = f"""
     <style>
-        html, body, [data-testid="stApp"] {
+        html, body, [data-testid=\"stApp\"] {{
             height: 100%;
             margin: 0;
             padding: 0;
-            %s
-        }
-        .draw-container {
+            {'overflow: hidden;' if fullscreen_toggle else 'overflow: auto;'}
+        }}
+        .draw-container {{
             position: fixed;
             top: 0;
             left: 0;
@@ -49,8 +49,8 @@ fullscreen_style = """
             height: 100vh;
             overflow: hidden;
             text-align: center;
-        }
-        .background-img, .background-vid {
+        }}
+        .background-img, .background-vid {{
             position: absolute;
             top: 0;
             left: 0;
@@ -59,30 +59,30 @@ fullscreen_style = """
             object-fit: cover;
             z-index: 0;
             opacity: 0.5;
-        }
-        .logo-img {
+        }}
+        .logo-img {{
             position: absolute;
             z-index: 2;
-        }
-        .winner-name {
+        }}
+        .winner-name {{
             position: relative;
             z-index: 3;
             font-weight: bold;
             margin-top: 200px;
             animation: fadein 1s;
-        }
-        .timer {
+        }}
+        .timer {{
             position: relative;
             z-index: 3;
             margin-top: 10px;
             font-weight: bold;
-        }
-        @keyframes fadein {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+        }}
+        @keyframes fadein {{
+            from {{ opacity: 0; }}
+            to {{ opacity: 1; }}
+        }}
     </style>
-""" % ("overflow: hidden;" if fullscreen_toggle else "overflow: auto;")
+"""
 
 st.markdown(fullscreen_style, unsafe_allow_html=True)
 
