@@ -81,8 +81,8 @@ if st.sidebar.button("💾 Save Settings"):
     })
     st.sidebar.success("Saved settings!")
 
-start = st.button("🎲 Start Draw")
-export = st.button("📥 Export Winners")
+start = st.sidebar.button("🎲 Start Draw")
+export = st.sidebar.button("📥 Export Winners")
 
 if export and os.path.exists(WINNERS_FILE):
     with open(WINNERS_FILE, "rb") as f:
