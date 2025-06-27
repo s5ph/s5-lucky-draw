@@ -11,6 +11,7 @@ import os
 st.set_page_config("🎰 S5.com Lucky Draw", layout="wide")
 ASSETS_DIR = "uploaded_assets"
 SETTINGS_FILE = "draw_settings.json"
+WINNERS_FILE = "winners.csv"
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
 def save_uploaded_file(upload, name):
@@ -49,6 +50,9 @@ drumroll = st.file_uploader("Drumroll Sound", type=["mp3", "wav"])
 crash = st.file_uploader("Crash Effect Sound", type=["mp3", "wav"])
 applause = st.file_uploader("Applause Sound", type=["mp3", "wav"])
 
+mute_audio = st.sidebar.checkbox("🔇 Mute Audio")
+show_confetti = st.sidebar.checkbox("🎉 Show Confetti Effect")
+
 logo_path = save_uploaded_file(logo, "logo") if logo else os.path.join(ASSETS_DIR, "logo.png")
 bg_path = save_uploaded_file(bg, "bg") if bg else os.path.join(ASSETS_DIR, "bg.png")
 drumroll_path = save_uploaded_file(drumroll, "drumroll") if drumroll else os.path.join(ASSETS_DIR, "drumroll.mp3")
@@ -78,6 +82,11 @@ if st.sidebar.button("💾 Save Settings"):
     st.sidebar.success("Saved settings!")
 
 start = st.button("🎲 Start Draw")
+export = st.button("📥 Export Winners")
+
+if export and os.path.exists(WINNERS_FILE):
+    with open(WINNERS_FILE, "rb") as f:
+        st.download_button("Download Winners CSV", f, file_name="winners.csv")
 
 if start and csv:
     df = pd.read_csv(csv)
@@ -99,7 +108,7 @@ if start and csv:
         bg_html = f'<video class="background-vid" autoplay loop muted><source src="data:video/{b_ext};base64,{b64_bg}" type="video/{b_ext}"></video>' if b_ext == "mp4" else f'<img src="data:image/{b_ext};base64,{b64_bg}" class="background-img">'
         logo_html = f'<img src="data:image/{l_ext};base64,{b64_logo}" class="logo-img" style="width: {logo_width}px; top: 10px; left: 10px;">'
 
-        if os.path.exists(drumroll_path):
+        if not mute_audio and os.path.exists(drumroll_path):
             with open(drumroll_path, "rb") as f:
                 b64_drum = base64.b64encode(f.read()).decode()
                 audio_placeholder.markdown(f'<audio autoplay loop id="drumroll" style="display:none;"><source src="data:audio/mp3;base64,{b64_drum}" type="audio/mp3"></audio>', unsafe_allow_html=True)
@@ -118,15 +127,29 @@ if start and csv:
             time.sleep(0.1)
 
         winners = df.sample(n=winner_count)
+        winners.to_csv(WINNERS_FILE, index=False)
         final_names = "<br>".join([f"🎉 {r['Name']} - {r['Account Name']}" for _, r in winners.iterrows()])
 
         winner_audio = ""
-        if os.path.exists(crash_path):
+        if not mute_audio and os.path.exists(crash_path):
             with open(crash_path, "rb") as f:
                 winner_audio += f'<audio autoplay id="crash"><source src="data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}" type="audio/mp3"></audio>'
-        if os.path.exists(applause_path):
+        if not mute_audio and os.path.exists(applause_path):
             with open(applause_path, "rb") as f:
                 winner_audio += f'<audio autoplay id="applause"><source src="data:audio/mp3;base64,{base64.b64encode(f.read()).decode()}" type="audio/mp3"></audio>'
+
+        confetti_script = """
+        <script>
+        const duration = 5000;
+        const end = Date.now() + duration;
+        (function frame() {
+            confetti({particleCount: 3, angle: 60, spread: 55, origin: {x: 0}});
+            confetti({particleCount: 3, angle: 120, spread: 55, origin: {x: 1}});
+            if (Date.now() < end) requestAnimationFrame(frame);
+        })();
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+        """ if show_confetti else ""
 
         scroll_placeholder.empty()
         audio_placeholder.empty()
@@ -137,4 +160,5 @@ if start and csv:
                 <div class="winner-name" style="color:{font_color}; font-size:{font_size + 10}px">{final_names}</div>
             </div>
             {winner_audio}
+            {confetti_script}
         """, unsafe_allow_html=True)
