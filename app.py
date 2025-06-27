@@ -168,6 +168,9 @@ if df is not None:
                 show_winner(winner)
                 time.sleep(0.5)
 
+    if st.button("🔁 Restart Draw"):
+        st.experimental_rerun()
+
     if winner_log:
         st.markdown("---")
         st.subheader("📜 Winner Log")
