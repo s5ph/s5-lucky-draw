@@ -1,202 +1,130 @@
-# This Streamlit script must be run in a local Python environment where Streamlit is installed and the necessary file and media access is available.
-# Install Streamlit using: pip install streamlit
-# Then run the script using: streamlit run <this_file.py>
+# S5.COM Lucky Draw – Rebuilt from Scratch
 
 import streamlit as st
 import pandas as pd
-import base64
-import time
+import random
 import json
+import time
+import base64
 import os
 
-st.set_page_config(page_title="🎰 S5.com Lucky Draw", layout="wide")
-SETTINGS_FILE = "s5_draw_settings.json"
+# === Setup ===
+st.set_page_config("🎰 S5.com Lucky Draw", layout="wide")
 ASSETS_DIR = "uploaded_assets"
+SETTINGS_FILE = "draw_settings.json"
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
-def save_file(uploaded_file, name):
+# === Helpers ===
+def save_uploaded_file(upload, name):
     path = os.path.join(ASSETS_DIR, name)
     with open(path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+        f.write(upload.getbuffer())
     return path
 
-def load_file(name):
+def load_saved_file(name):
     path = os.path.join(ASSETS_DIR, name)
     return open(path, "rb") if os.path.exists(path) else None
 
-# Load saved settings if available
-if os.path.exists(SETTINGS_FILE):
-    with open(SETTINGS_FILE, "r") as f:
-        saved_settings = json.load(f)
-else:
-    saved_settings = {}
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f)
+
+# === Style ===
 st.markdown("""
     <style>
-        .draw-area {
-            position: relative;
-            width: 100%;
-            height: 600px;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            text-align: center;
-        }
-        .background {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 0;
-        }
-        .logo-overlay {
-            position: absolute;
-            z-index: 2;
-        }
-        .winner-text {
-            z-index: 3;
-            font-weight: bold;
-        }
-        .timer {
-            z-index: 3;
-        }
+        .draw-container { position: relative; height: 600px; overflow: hidden; text-align: center; }
+        .background-img, .background-vid { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.5; }
+        .logo-img { position: absolute; z-index: 2; }
+        .winner-name { position: relative; z-index: 3; font-weight: bold; margin-top: 200px; }
+        .timer { position: relative; z-index: 3; margin-top: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align: center;'>🎰 S5.COM Lucky Draw</h1><hr>", unsafe_allow_html=True)
+# === Upload Section ===
+st.title("🎰 S5.COM Lucky Draw")
+logo = st.file_uploader("Logo", type=["png", "jpg"])
+bg = st.file_uploader("Background (image/gif/mp4)", type=["png", "jpg", "gif", "mp4"])
+csv = st.file_uploader("CSV File", type="csv")
 
-# Upload inputs and persist them
-uploaded_files = {
-    "logo": st.file_uploader("Upload Logo (optional)", type=["png", "jpg", "jpeg"]),
-    "background": st.file_uploader("Upload Background (Image/GIF/Video)", type=["png", "jpg", "jpeg", "gif", "mp4"]),
-    "drumroll": st.file_uploader("Upload Drum Roll Sound (optional)", type=["mp3", "wav"]),
-    "crash": st.file_uploader("Upload Crash Sound (optional)", type=["mp3", "wav"]),
-    "applause": st.file_uploader("Upload Applause Sound (optional)", type=["mp3", "wav"])
-}
+# === Load or Save Files ===
+logo_path = save_uploaded_file(logo, "logo") if logo else os.path.join(ASSETS_DIR, "logo")
+bg_path = save_uploaded_file(bg, "bg") if bg else os.path.join(ASSETS_DIR, "bg")
 
-assets = {}
-for key, file in uploaded_files.items():
-    if file:
-        save_file(file, key)
-        assets[key] = open(os.path.join(ASSETS_DIR, key), "rb")
-    else:
-        assets[key] = load_file(key)
-
-if st.button("🗑️ Clear Uploaded Files"):
-    for key in uploaded_files:
-        path = os.path.join(ASSETS_DIR, key)
-        if os.path.exists(path):
-            os.remove(path)
-    st.success("Uploaded files cleared. Please refresh.")
-
-csv_file = st.file_uploader("Upload CSV File", type="csv")
-if csv_file:
-    df = pd.read_csv(csv_file)
-    if not {"ID", "Name", "Account Name"}.issubset(df.columns):
-        st.error("CSV must contain columns: ID, Name, Account Name")
-        df = None
-else:
-    df = None
-
-# Sidebar controls
-st.sidebar.header("Draw Settings")
-winner_count = st.sidebar.slider("Number of Winners", 1, 10, saved_settings.get("winner_count", 3))
-total_draw_time = st.sidebar.number_input("Draw Time (seconds)", min_value=1.0, max_value=300.0, value=saved_settings.get("total_draw_time", 15.0))
-font_size = st.sidebar.slider("Winner Font Size", 10, 80, saved_settings.get("font_size", 32))
-timer_size = st.sidebar.slider("Timer Font Size", 10, 50, saved_settings.get("timer_size", 20))
-font_color = st.sidebar.color_picker("Font Color", saved_settings.get("font_color", "#FFFFFF"))
-timer_color = st.sidebar.color_picker("Timer Color", saved_settings.get("timer_color", "#FFFF00"))
-logo_width = st.sidebar.slider("Logo Width (px)", 50, 500, saved_settings.get("logo_width", 150))
-logo_position = st.sidebar.selectbox("Logo Position", ["top", "bottom", "left", "right", "center"], index=["top", "bottom", "left", "right", "center"].index(saved_settings.get("logo_position", "top")))
-background_opacity = st.sidebar.slider("Background Opacity", 0.0, 1.0, saved_settings.get("background_opacity", 0.4))
-prevent_duplicates = st.sidebar.checkbox("Prevent Duplicate Winners", value=saved_settings.get("prevent_duplicates", True))
+# === Settings ===
+saved = load_settings()
+st.sidebar.header("Settings")
+winner_count = st.sidebar.number_input("Number of Winners", 1, 10, saved.get("winner_count", 3))
+draw_time = st.sidebar.number_input("Draw Time (sec)", 5.0, 300.0, saved.get("draw_time", 15.0))
+font_color = st.sidebar.color_picker("Font Color", saved.get("font_color", "#FFFFFF"))
+font_size = st.sidebar.slider("Font Size", 20, 80, saved.get("font_size", 40))
+timer_color = st.sidebar.color_picker("Timer Color", saved.get("timer_color", "#FFDD00"))
+logo_width = st.sidebar.slider("Logo Width (px)", 100, 400, saved.get("logo_width", 150))
 
 if st.sidebar.button("💾 Save Settings"):
-    new_settings = {
+    save_settings({
         "winner_count": winner_count,
-        "total_draw_time": total_draw_time,
-        "font_size": font_size,
-        "timer_size": timer_size,
+        "draw_time": draw_time,
         "font_color": font_color,
+        "font_size": font_size,
         "timer_color": timer_color,
-        "logo_width": logo_width,
-        "logo_position": logo_position,
-        "background_opacity": background_opacity,
-        "prevent_duplicates": prevent_duplicates
-    }
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(new_settings, f)
-    st.sidebar.success("Settings saved successfully!")
+        "logo_width": logo_width
+    })
+    st.sidebar.success("Saved settings!")
 
-# Add control buttons to sidebar
-if df is not None:
-    start_col, restart_col = st.sidebar.columns([1, 1])
-    with start_col:
-        if st.button("🎲 Start Draw"):
-            st.session_state["start_draw"] = True
-    with restart_col:
-        if "start_draw" in st.session_state:
-            del st.session_state["start_draw"]
-            st.success("Draw session reset. Press 'Start Draw' again to restart.")
+# === Control ===
+start = st.button("🎲 Start Draw")
 
-# Draw Logic
-if df is not None and st.session_state.get("start_draw"):
-    draw_area = st.empty()
-    placeholder = st.empty()
-    if len(df) < winner_count:
-        st.error("Not enough entries in the CSV to pick the requested number of winners.")
+# === Run Draw ===
+if start and csv:
+    df = pd.read_csv(csv)
+    if not {"Name", "Account Name"}.issubset(df.columns):
+        st.error("CSV must include 'Name' and 'Account Name' columns")
     else:
-        if assets["background"]:
-            ext = assets["background"].name.split(".")[-1]
-            encoded_bg = base64.b64encode(assets["background"].read()).decode()
-            if ext == "mp4":
-                bg_html = f"""
-                <video class='background' autoplay loop muted playsinline>
-                    <source src="data:video/mp4;base64,{encoded_bg}" type="video/mp4">
-                </video>"""
-            else:
-                bg_html = f"<img src='data:image/{ext};base64,{encoded_bg}' class='background' style='opacity: {background_opacity};'>"
-        else:
-            bg_html = ""
-
-        if assets["logo"]:
-            encoded_logo = base64.b64encode(assets["logo"].read()).decode()
-            logo_html = f"<img src='data:image/png;base64,{encoded_logo}' class='logo-overlay' style='width: {logo_width}px; {logo_position}: 20px;'>"
-        else:
-            logo_html = ""
-
+        placeholder = st.empty()
+        names = df["Name"].tolist()
         start_time = time.time()
-        last_name = ""
-        while time.time() - start_time < total_draw_time:
-            remaining = total_draw_time - (time.time() - start_time)
-            rand_name = df.sample(1)["Name"].values[0]
-            if rand_name != last_name:
-                draw_area.markdown(f"""
-                    <div class='draw-area'>
-                        {bg_html}
-                        {logo_html}
-                        <div class='winner-text' style='color: {font_color}; font-size: {font_size}px;'>{rand_name}</div>
-                        <div class='timer' style='color: {timer_color}; font-size: {timer_size}px;'>⏳ {remaining:.1f} sec</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                last_name = rand_name
+        elapsed = 0
+        with open(bg_path, "rb") as bg_file:
+            bg_data = bg_file.read()
+        with open(logo_path, "rb") as logo_file:
+            logo_data = logo_file.read()
+
+        b_ext = bg_path.split(".")[-1]
+        l_ext = logo_path.split(".")[-1]
+        b64_bg = base64.b64encode(bg_data).decode()
+        b64_logo = base64.b64encode(logo_data).decode()
+
+        bg_html = f'<video class="background-vid" autoplay loop muted><source src="data:video/mp4;base64,{b64_bg}" type="video/mp4"></video>' if b_ext == "mp4" else f'<img src="data:image/{b_ext};base64,{b64_bg}" class="background-img">'
+        logo_html = f'<img src="data:image/{l_ext};base64,{b64_logo}" class="logo-img" style="width: {logo_width}px; top: 10px; left: 10px;">'
+
+        while elapsed < draw_time:
+            name = random.choice(names)
+            time_left = max(0, draw_time - elapsed)
+
+            placeholder.markdown(f"""
+                <div class="draw-container">
+                    {bg_html}
+                    {logo_html}
+                    <div class="winner-name" style="color:{font_color}; font-size:{font_size}px">{name}</div>
+                    <div class="timer" style="color:{timer_color}; font-size:24px">⏳ {time_left:.1f}s</div>
+                </div>
+            """, unsafe_allow_html=True)
+
             time.sleep(0.1)
+            elapsed = time.time() - start_time
 
-        if prevent_duplicates:
-            winners = df.sample(n=winner_count)
-        else:
-            winners = df.sample(n=winner_count, replace=True)
-
-        winner_text = "<br>".join([f"{row['Name']} - {row['Account Name']}" for _, row in winners.iterrows()])
-        draw_area.markdown(f"""
-            <div class='draw-area'>
+        winners = df.sample(n=winner_count)
+        final_names = "<br>".join([f"🎉 {r['Name']} - {r['Account Name']}" for _, r in winners.iterrows()])
+        placeholder.markdown(f"""
+            <div class="draw-container">
                 {bg_html}
                 {logo_html}
-                <div class='winner-text' style='color: {font_color}; font-size: {font_size + 10}px;'>🎉 WINNER{'S' if winner_count > 1 else ''} 🎉<br>{winner_text}</div>
+                <div class="winner-name" style="color:{font_color}; font-size:{font_size + 10}px">{final_names}</div>
             </div>
         """, unsafe_allow_html=True)
-        st.session_state["start_draw"] = False
