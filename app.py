@@ -6,8 +6,18 @@ import streamlit as st
 import pandas as pd
 import base64
 import time
+import json
+import os
 
 st.set_page_config(page_title="🎰 S5.com Lucky Draw", layout="wide")
+SETTINGS_FILE = "s5_draw_settings.json"
+
+# Load saved settings if available
+if os.path.exists(SETTINGS_FILE):
+    with open(SETTINGS_FILE, "r") as f:
+        saved_settings = json.load(f)
+else:
+    saved_settings = {}
 
 st.markdown("""
     <style>
@@ -65,16 +75,33 @@ else:
 
 # Sidebar controls
 st.sidebar.header("Draw Settings")
-winner_count = st.sidebar.slider("Number of Winners", 1, 10, 3)
-total_draw_time = st.sidebar.number_input("Draw Time (seconds)", min_value=1.0, max_value=300.0, value=15.0)
-font_size = st.sidebar.slider("Winner Font Size", 10, 80, 32)
-timer_size = st.sidebar.slider("Timer Font Size", 10, 50, 20)
-font_color = st.sidebar.color_picker("Font Color", "#FFFFFF")
-timer_color = st.sidebar.color_picker("Timer Color", "#FFFF00")
-logo_width = st.sidebar.slider("Logo Width (px)", 50, 500, 150)
-logo_position = st.sidebar.selectbox("Logo Position", ["top", "bottom", "left", "right", "center"])
-background_opacity = st.sidebar.slider("Background Opacity", 0.0, 1.0, 0.4)
-prevent_duplicates = st.sidebar.checkbox("Prevent Duplicate Winners", value=True)
+winner_count = st.sidebar.slider("Number of Winners", 1, 10, saved_settings.get("winner_count", 3))
+total_draw_time = st.sidebar.number_input("Draw Time (seconds)", min_value=1.0, max_value=300.0, value=saved_settings.get("total_draw_time", 15.0))
+font_size = st.sidebar.slider("Winner Font Size", 10, 80, saved_settings.get("font_size", 32))
+timer_size = st.sidebar.slider("Timer Font Size", 10, 50, saved_settings.get("timer_size", 20))
+font_color = st.sidebar.color_picker("Font Color", saved_settings.get("font_color", "#FFFFFF"))
+timer_color = st.sidebar.color_picker("Timer Color", saved_settings.get("timer_color", "#FFFF00"))
+logo_width = st.sidebar.slider("Logo Width (px)", 50, 500, saved_settings.get("logo_width", 150))
+logo_position = st.sidebar.selectbox("Logo Position", ["top", "bottom", "left", "right", "center"], index=["top", "bottom", "left", "right", "center"].index(saved_settings.get("logo_position", "top")))
+background_opacity = st.sidebar.slider("Background Opacity", 0.0, 1.0, saved_settings.get("background_opacity", 0.4))
+prevent_duplicates = st.sidebar.checkbox("Prevent Duplicate Winners", value=saved_settings.get("prevent_duplicates", True))
+
+if st.sidebar.button("💾 Save Settings"):
+    new_settings = {
+        "winner_count": winner_count,
+        "total_draw_time": total_draw_time,
+        "font_size": font_size,
+        "timer_size": timer_size,
+        "font_color": font_color,
+        "timer_color": timer_color,
+        "logo_width": logo_width,
+        "logo_position": logo_position,
+        "background_opacity": background_opacity,
+        "prevent_duplicates": prevent_duplicates
+    }
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(new_settings, f)
+    st.sidebar.success("Settings saved successfully!")
 
 winner_log = []
 drawn_indices = set()
