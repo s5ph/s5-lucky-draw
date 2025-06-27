@@ -143,5 +143,60 @@ if df is not None:
             del st.session_state["start_draw"]
             st.success("Draw session reset. Press 'Start Draw' again to restart.")
 
-# The rest of the application logic should follow here to execute the draw, countdown, sound playback, etc.
-# This must be implemented after defining UI and loading configuration/data.
+# Draw Logic
+if df is not None and st.session_state.get("start_draw"):
+    draw_area = st.empty()
+    placeholder = st.empty()
+    if len(df) < winner_count:
+        st.error("Not enough entries in the CSV to pick the requested number of winners.")
+    else:
+        if assets["background"]:
+            ext = assets["background"].name.split(".")[-1]
+            encoded_bg = base64.b64encode(assets["background"].read()).decode()
+            if ext == "mp4":
+                bg_html = f"""
+                <video class='background' autoplay loop muted playsinline>
+                    <source src="data:video/mp4;base64,{encoded_bg}" type="video/mp4">
+                </video>"""
+            else:
+                bg_html = f"<img src='data:image/{ext};base64,{encoded_bg}' class='background' style='opacity: {background_opacity};'>"
+        else:
+            bg_html = ""
+
+        if assets["logo"]:
+            encoded_logo = base64.b64encode(assets["logo"].read()).decode()
+            logo_html = f"<img src='data:image/png;base64,{encoded_logo}' class='logo-overlay' style='width: {logo_width}px; {logo_position}: 20px;'>"
+        else:
+            logo_html = ""
+
+        start_time = time.time()
+        last_name = ""
+        while time.time() - start_time < total_draw_time:
+            remaining = total_draw_time - (time.time() - start_time)
+            rand_name = df.sample(1)["Name"].values[0]
+            if rand_name != last_name:
+                draw_area.markdown(f"""
+                    <div class='draw-area'>
+                        {bg_html}
+                        {logo_html}
+                        <div class='winner-text' style='color: {font_color}; font-size: {font_size}px;'>{rand_name}</div>
+                        <div class='timer' style='color: {timer_color}; font-size: {timer_size}px;'>⏳ {remaining:.1f} sec</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                last_name = rand_name
+            time.sleep(0.1)
+
+        if prevent_duplicates:
+            winners = df.sample(n=winner_count)
+        else:
+            winners = df.sample(n=winner_count, replace=True)
+
+        winner_text = "<br>".join([f"{row['Name']} - {row['Account Name']}" for _, row in winners.iterrows()])
+        draw_area.markdown(f"""
+            <div class='draw-area'>
+                {bg_html}
+                {logo_html}
+                <div class='winner-text' style='color: {font_color}; font-size: {font_size + 10}px;'>🎉 WINNER{'S' if winner_count > 1 else ''} 🎉<br>{winner_text}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        st.session_state["start_draw"] = False
