@@ -42,20 +42,17 @@ fullscreen_style = f"""
             {'overflow: hidden;' if fullscreen_toggle else 'overflow: auto;'}
         }}
         .draw-container {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
+            position: relative;
+            width: 100%;
+            height: 100%;
             text-align: center;
         }}
         .background-img, .background-vid {{
             position: absolute;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
             z-index: 0;
             opacity: 0.5;
