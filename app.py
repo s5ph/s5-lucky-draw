@@ -90,6 +90,7 @@ def logo_position_style():
 
 def scroll_draw(df, duration):
     container = st.empty()
+    start_time = time.time()
     bg_html = ""
 
     if background_file:
@@ -114,11 +115,13 @@ def scroll_draw(df, duration):
             </audio>
         """, unsafe_allow_html=True)
 
-    iterations = int(duration / 0.1)
-    for i in range(iterations):
+    while True:
+        elapsed = time.time() - start_time
+        if elapsed >= duration:
+            break
         sample = df.sample(1).iloc[0]
         scroll_text = f"🔄 {sample['Name']} ({sample['Account Name']})"
-        remain = duration - (i * 0.1)
+        remain = max(0.0, duration - elapsed)
         html = f"""
         <div class='draw-area'>
             {bg_html}
@@ -156,12 +159,12 @@ def display_winner(winner):
 if df is not None:
     if st.button("🎲 Start Draw"):
         with st.spinner("Drawing..."):
-            remaining_df = df.copy()
+            available_df = df.copy()
             for i in range(winner_count):
                 st.subheader(f"Winner #{i+1}")
                 scroll_draw(df, total_draw_time)
                 while True:
-                    selected = remaining_df.sample(1).iloc[0]
+                    selected = available_df.sample(1).iloc[0]
                     if not prevent_duplicates or selected.name not in drawn_indices:
                         break
                 drawn_indices.add(selected.name)
