@@ -45,10 +45,12 @@ st.markdown("""
 
 st.markdown("<h1 style='text-align: center;'>🎰 S5.COM Lucky Draw</h1><hr>", unsafe_allow_html=True)
 
-# Upload logo and background
+# Uploads
 logo_file = st.file_uploader("Upload Logo (optional)", type=["png", "jpg", "jpeg"])
 background_file = st.file_uploader("Upload Background (Image/GIF/Video)", type=["png", "jpg", "jpeg", "gif", "mp4"])
-sound_file = st.file_uploader("Upload Sound Effect (optional)", type=["mp3", "wav"])
+drumroll_file = st.file_uploader("Upload Drum Roll Sound (optional)", type=["mp3", "wav"])
+crash_file = st.file_uploader("Upload Crash Sound (optional)", type=["mp3", "wav"])
+applause_file = st.file_uploader("Upload Applause Sound (optional)", type=["mp3", "wav"])
 
 # Upload CSV
 df = None
@@ -71,6 +73,8 @@ logo_width = st.sidebar.slider("Logo Width (px)", min_value=50, max_value=500, v
 logo_position = st.sidebar.selectbox("Logo Position", ["top", "bottom", "left", "right", "center"])
 background_opacity = st.sidebar.slider("Background Opacity", min_value=0.0, max_value=1.0, value=0.4)
 prevent_duplicates = st.sidebar.checkbox("Prevent Duplicate Winners", value=True)
+drumroll_volume = st.sidebar.slider("Drum Roll Volume", 0, 100, 60)
+fx_volume = st.sidebar.slider("Winner FX Volume", 0, 100, 100)
 
 winner_log = []
 drawn_indices = set()
@@ -92,11 +96,11 @@ def countdown_scroll(df, total_time):
     logo_b64 = base64.b64encode(logo_file.read()).decode() if logo_file else ""
     logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="logo-overlay" style="{get_logo_position_style()} width: {logo_width}px;">' if logo_file else ""
 
-    if sound_file:
-        sound_b64 = base64.b64encode(sound_file.read()).decode()
+    if drumroll_file:
+        drumroll_b64 = base64.b64encode(drumroll_file.read()).decode()
         st.markdown(f"""
-            <audio autoplay loop>
-                <source src="data:audio/mp3;base64,{sound_b64}" type="audio/mp3">
+            <audio autoplay loop controls style='display:none'>
+                <source src="data:audio/mp3;base64,{drumroll_b64}" type="audio/mp3">
             </audio>
         """, unsafe_allow_html=True)
 
@@ -116,6 +120,30 @@ def countdown_scroll(df, total_time):
         scroll_placeholder.markdown(html, unsafe_allow_html=True)
         time.sleep(0.1)
 
+# Winner announcement with confetti and sound
+def show_winner(winner):
+    winner_text = f"🎉 <b>ID:</b> {winner['ID']}<br><b>👤 Name:</b> {winner['Name']}<br><b>💼 Account:</b> {winner['Account Name']}"
+    st.markdown(f"<div style='text-align:center; font-size: 1.8rem; color:{font_color}'>{winner_text}</div>", unsafe_allow_html=True)
+    st.balloons()
+
+    if crash_file:
+        crash_b64 = base64.b64encode(crash_file.read()).decode()
+        st.markdown(f"""
+            <audio autoplay style='display:none'>
+                <source src="data:audio/mp3;base64,{crash_b64}" type="audio/mp3">
+            </audio>
+        """, unsafe_allow_html=True)
+
+    if applause_file:
+        applause_b64 = base64.b64encode(applause_file.read()).decode()
+        st.markdown(f"""
+            <audio autoplay style='display:none'>
+                <source src="data:audio/mp3;base64,{applause_b64}" type="audio/mp3">
+            </audio>
+        """, unsafe_allow_html=True)
+
+    winner_log.append(winner_text)
+
 def get_logo_position_style():
     return {
         "top": "top: 20px; left: 50%; transform: translateX(-50%);",
@@ -124,13 +152,6 @@ def get_logo_position_style():
         "right": "top: 50%; right: 20px; transform: translateY(-50%);",
         "center": "top: 50%; left: 50%; transform: translate(-50%, -50%);"
     }[logo_position]
-
-# Winner announcement with confetti
-def show_winner(winner):
-    winner_text = f"🎉 <b>ID:</b> {winner['ID']}<br><b>👤 Name:</b> {winner['Name']}<br><b>💼 Account:</b> {winner['Account Name']}"
-    st.markdown(f"<div style='text-align:center; font-size: 1.8rem; color:{font_color}'>{winner_text}</div>", unsafe_allow_html=True)
-    st.balloons()
-    winner_log.append(winner_text)
 
 if df is not None:
     if st.button("🎲 Start Draw"):
