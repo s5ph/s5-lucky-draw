@@ -42,7 +42,7 @@ winner_pos_top = st.sidebar.slider("Winner Text Top Offset (px)", 0, 600, saved.
 
 fullscreen_style = f"""
 <style>
-    html, body, [data-testid="stApp"] {{
+    html, body, [data-testid=\"stApp\"] {{
         height: 100%;
         margin: 0;
         padding: 0;
