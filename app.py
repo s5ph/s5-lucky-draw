@@ -65,4 +65,69 @@ if start_btn:
     id_col   = next((c for c in df.columns if c.lower() in ("id","uid")), None)
     acc_col  = next((c for c in df.columns if "account" in c.lower()), None)
     if name_col is None:
-        st.error("CSV must contain a
+        st.error("CSV must contain a 'name' column.")
+        st.stop()
+    names = df[name_col].dropna().tolist()
+    if not names:
+        st.error("No names found in CSV.")
+        st.stop()
+
+    # --- HTML blocks
+    if bg_b64:
+        if bg_ext in ("mp4","webm"):
+            bg_html = f"""<video autoplay loop muted style="position:absolute;top:0;left:0;width:100vw;height:100vh;object-fit:cover;opacity:{backdrop_op};z-index:0;"><source src="data:video/{bg_ext};base64,{bg_b64}"></video>"""
+        else:
+            bg_html = f"""<div style="position:absolute;top:0;left:0;width:100vw;height:100vh;background:url('data:image/{bg_ext};base64,{bg_b64}') center/cover;opacity:{backdrop_op};z-index:0;"></div>"""
+    else:
+        bg_html = ""
+    logo_html = f"""<img src="data:image/{logo_ext};base64,{logo_b64}" style="position:absolute;top:10px;left:10px;width:120px;z-index:2;">""" if logo_b64 else ""
+
+    # --- Audio start
+    if not mute and drum_b64:
+        audio_ph.markdown(f"""<audio autoplay loop><source src="data:audio/{drum_ext};base64,{drum_b64}"></audio>""", unsafe_allow_html=True)
+
+    # --- Draw effect
+    start_t = time.time()
+    elapsed = 0
+    frame = 0
+    while elapsed < draw_duration:
+        elapsed = time.time() - start_t
+        rem = max(0, draw_duration - elapsed)
+        if animation == "Scrolling":
+            show_name = random.choice(names)
+        elif animation == "Rolodex":
+            idx = (frame // max(1,int(rolodex_interval/0.1))) % len(names)
+            show_name = names[idx]
+        else:
+            show_name = random.choice(names)
+
+        left_t = f"<div style='position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:24px;color:{font_color};'>{int(rem)}</div>" if show_left else ""
+        right_t= f"<div style='position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:24px;color:{font_color};'>{int(rem)}</div>" if show_right else ""
+        draw_ph.markdown(f"""
+        <div style="position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;">
+            {bg_html}
+            {logo_html}
+            {left_t}{right_t}
+            <div style="position:relative;z-index:3;padding:{backdrop_pad}px;background:{backdrop_color};color:{font_color};font-size:{font_size}px;border-radius:10px;">
+                {show_name}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        time.sleep(0.1)
+        frame += 1
+
+    # --- End: clear drum, play crash & applause
+    audio_ph.empty()
+    if not mute and crash_b64:
+        audio_ph.markdown(f"""<audio autoplay><source src="data:audio/{crash_ext};base64,{crash_b64}"></audio>""", unsafe_allow_html=True)
+    if not mute and appl_b64:
+        audio_ph.markdown(f"""<audio autoplay><source src="data:audio/{appl_ext};base64,{appl_b64}"></audio>""", unsafe_allow_html=True)
+
+    # --- Winners and confetti
+    winners = df.sample(n=winner_count)
+    if confetti: st.balloons()
+    final_html = "<br>".join(
+        " | ".join(str(row[col]) for col in (id_col, name_col, acc_col) if col)
+        for _, row in winners.iterrows()
+    )
+    draw_ph.markdo_
