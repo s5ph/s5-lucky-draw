@@ -61,6 +61,24 @@ show_name = "Name" in display_cols
 show_account = "Account" in display_cols
 
 st.sidebar.markdown("---")
+# Animation style selection
+animation = st.sidebar.selectbox(
+    "Animation Style",
+    ["Scrolling", "Rolodex", "Letter-by-Letter", "Fade In", "Slide In"],
+    index=["Scrolling", "Rolodex", "Letter-by-Letter", "Fade In", "Slide In"].index(saved.get('animation', 'Scrolling'))
+)
+
+st.sidebar.markdown("---")
+# Display columns
+display_cols = st.sidebar.multiselect(
+    "Display Columns", ["ID", "Name", "Account"],
+    default=[c for c in ["ID","Name","Account"] if saved.get(f'show_{c.lower()}', True)]
+)
+show_id = "ID" in display_cols
+show_name = "Name" in display_cols
+show_account = "Account" in display_cols
+
+st.sidebar.markdown("---")
 # Appearance
 font_size = st.sidebar.slider("Font Size (px)", 20, 120, saved.get('font_size', 48), key="font_size")
 font_color = st.sidebar.color_picker("Font Color", value=saved.get('font_color', '#FFFFFF'), key="font_color")
@@ -108,6 +126,24 @@ if save_btn:
     st.sidebar.success("Settings saved!")
 
 # --- Styles ---
+# CSS animations
+css = f"""
+<style>
+html, body, [data-testid='stApp'] {{ margin:0; padding:0; height:100%; }}
+.draw-container {{ display:flex; align-items:center; justify-content:center; position:relative; width:100%; height:100vh; margin:0; padding:0; }}
+.background-img, .background-vid {{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0.5; z-index:0; }}
+.logo-img {{ position:absolute; top:10px; left:10px; width:{logo_width}px; z-index:2; }}
+.winner-backdrop {{ display:inline-block; padding:{backdrop_padding}px; background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity}); border-radius:10px; z-index:3; }}
+.winner-name {{ font-size:{font_size}px; color:{font_color}; margin:0; transform:none; z-index:4; font-weight:bold; }}
+.timer-left {{ position:absolute; left:20px; top:50%; transform:translateY(-50%); font-size:24px; color:{font_color}; margin:0; z-index:3; }}
+.timer-right {{ position:absolute; right:20px; top:50%; transform:translateY(-50%); font-size:24px; color:{font_color}; margin:0; z-index:3; }}
+@keyframes fadein {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
+@keyframes slidein {{ from {{ transform:translateX(-100%); }} to {{ transform:translateX(0); }} }}
+.fade {{ animation: fadein 1s infinite; }}
+.slide {{ animation: slidein 0.5s ease-in-out; }}
+</style>
+"""
+st.markdown(css, unsafe_allow_html=True)
 css = f"""
 <style>
 html, body, [data-testid='stApp'] {{ margin:0; padding:0; height:100%; }}
@@ -173,24 +209,47 @@ if start_draw and csv_up:
         ddata = base64.b64encode(open(dr_path,'rb').read()).decode()
         audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{ddata}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
-    # Scroll effect with dual timers
-    names = df[name_col].dropna().tolist()
-    start_time = time.time()
-    while (elapsed := time.time() - start_time) < draw_duration:
+    # Scroll effect with dual timers and animation styles
+names = df[name_col].dropna().tolist()
+start_time = time.time()
+while (elapsed := time.time() - start_time) < draw_duration:
+    remaining = draw_duration - elapsed
+    # Animation handling
+    if animation == 'Scrolling':
         name = random.choice(names)
-        remaining = draw_duration - elapsed
-        # Construct timer HTML based on toggles
-        timer_left_html = f"<div class='timer-left'>⏳ {remaining:.1f}s</div>" if show_left_timer else ""
-        timer_right_html = f"<div class='timer-right'>⏳ {remaining:.1f}s</div>" if show_right_timer else ""
-        # Render background, logo, timers, and scrolling name
-        scroll_ph.markdown(
-            f"<div class='draw-container'>{bg_html}{logo_html}{timer_left_html}{timer_right_html}" +
-            f"<div class='winner-backdrop'><div class='winner-name'>{name}</div></div></div>",
-            unsafe_allow_html=True
-        )
-        time.sleep(0.1)
+    elif animation == 'Rolodex':
+        # sequential roll
+        idx = int(elapsed / (draw_duration/len(names))) % len(names)
+        name = names[idx]
+    elif animation == 'Letter-by-Letter':
+        full_name = random.choice(names)
+        for i in range(1, len(full_name)+1):
+            scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{full_name[:i]}</div></div></div>", unsafe_allow_html=True)
+            time.sleep(0.05)
+        continue
+    elif animation == 'Fade In':
+        name = random.choice(names)
+        style = 'fade'
+    elif animation == 'Slide In':
+        name = random.choice(names)
+        style = 'slide'
+    else:
+        name = random.choice(names)
+        style = ''
+    # Timer HTML
+    timer_left_html = f"<div class='timer-left'>⏳ {remaining:.1f}s</div>" if show_left_timer else ""
+    timer_right_html = f"<div class='timer-right'>⏳ {remaining:.1f}s</div>" if show_right_timer else ""
+    # Name with effect class
+    name_html = f"<div class='winner-name {style}'>{name}</div>"
+    # Render frame
+    scroll_ph.markdown(
+        f"<div class='draw-container'>{bg_html}{logo_html}{timer_left_html}{timer_right_html}" +
+        f"<div class='winner-backdrop'>{name_html}</div></div>",
+        unsafe_allow_html=True
+    )
+    time.sleep(0.1)
 
-    # Final winners
+# Final winners
     winners = df.sample(n=winner_count)
     audio_ph.empty()
     if not mute_audio and cr_path and os.path.exists(cr_path):
