@@ -119,4 +119,90 @@ with st.sidebar.expander("🔤 Text Appearance", expanded=False):
     font_size = st.slider("Font Size (px)", 20, 120, saved.get("font_size", 48))
     font_color = st.color_picker("Font Color", saved.get("font_color", "#FFFFFF"))
 
-# Placeholder for remaining logic: file saving, draw execution, winner picking, audio/video rendering, confetti, etc.
+# Add countdown settings and logic
+with st.sidebar.expander("⏳ Countdown Settings", expanded=True):
+    draw_duration = st.slider("Countdown Duration (seconds)", 5, 60, saved.get("draw_duration", 10))
+
+# Store all settings back to disk
+save_settings({
+    "backdrop_color": backdrop_color,
+    "backdrop_opacity": backdrop_opacity,
+    "backdrop_padding": backdrop_padding,
+    "winner_pos_top": winner_pos_top,
+    "font_size": font_size,
+    "font_color": font_color,
+    "draw_duration": draw_duration
+})
+
+# Run draw when button is clicked
+if start_draw and csv_upload is not None:
+    df = pd.read_csv(csv_upload)
+    if df.empty or "name" not in df.columns:
+        st.error("CSV must contain a 'name' column.")
+    else:
+        names = df['name'].dropna().tolist()
+        placeholder = st.empty()
+        timer_placeholder = st.empty()
+        audio_placeholder = st.empty()
+        bg_placeholder = st.empty()
+
+        # Show background
+        if background_upload is not None:
+            bg_ext = background_upload.name.split(".")[-1].lower()
+            bg_bytes = background_upload.read()
+            encoded = base64.b64encode(bg_bytes).decode()
+            if bg_ext in ["mp4", "webm"]:
+                bg_html = f"""
+                <video autoplay loop muted class='background-vid'>
+                    <source src="data:video/{bg_ext};base64,{encoded}" type="video/{bg_ext}">
+                </video>
+                """
+            else:
+                bg_html = f"<img src='data:image/{bg_ext};base64,{encoded}' class='background-img'>"
+            bg_placeholder.markdown(bg_html, unsafe_allow_html=True)
+
+        # Play drumroll
+        if drumroll_upload:
+            audio_bytes = drumroll_upload.read()
+            drumroll_b64 = base64.b64encode(audio_bytes).decode()
+            audio_placeholder.markdown(f"""
+            <audio autoplay loop>
+                <source src="data:audio/mp3;base64,{drumroll_b64}" type="audio/mp3">
+            </audio>
+            """, unsafe_allow_html=True)
+
+        for i in range(draw_duration, 0, -1):
+            timer_placeholder.markdown(f"<div class='timer'>Drawing in: {i} seconds...</div>", unsafe_allow_html=True)
+            placeholder.markdown(f"<div class='winner-backdrop'><div class='winner-name' style='color:{font_color}; font-size:{font_size}px;'>{random.choice(names)}</div></div>", unsafe_allow_html=True)
+            time.sleep(1)
+
+        winner = random.choice(names)
+        st.balloons()
+
+        # Stop drumroll, play crash and applause
+        audio_placeholder.empty()
+        if crash_upload:
+            crash_bytes = crash_upload.read()
+            crash_b64 = base64.b64encode(crash_bytes).decode()
+            st.markdown(f"""
+            <audio autoplay>
+                <source src="data:audio/mp3;base64,{crash_b64}" type="audio/mp3">
+            </audio>
+            """, unsafe_allow_html=True)
+        if applause_upload:
+            applause_bytes = applause_upload.read()
+            applause_b64 = base64.b64encode(applause_bytes).decode()
+            st.markdown(f"""
+            <audio autoplay>
+                <source src="data:audio/mp3;base64,{applause_b64}" type="audio/mp3">
+            </audio>
+            """, unsafe_allow_html=True)
+
+        placeholder.markdown(f"<div class='winner-backdrop'><div class='winner-name' style='color:{font_color}; font-size:{font_size}px;'>🎉 {winner} 🎉</div></div>", unsafe_allow_html=True)
+        timer_placeholder.empty()
+
+        pd.DataFrame([[winner]], columns=["Winner"]).to_csv(WINNERS_FILE, mode='a', header=not os.path.exists(WINNERS_FILE), index=False)
+
+if export_winners and os.path.exists(WINNERS_FILE):
+    with open(WINNERS_FILE, "rb") as f:
+        st.sidebar.download_button("Download Winners CSV", f, file_name="winners.csv")
