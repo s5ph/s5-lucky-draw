@@ -115,13 +115,21 @@ if start_btn and csv_up:
         st.error("CSV must contain a 'Name' column.")
         st.stop()
     # Load assets
-    # Background
-    path = save_file(bg_up, 'background')
-    if path:
-        ext = path.split('.')[-1]
-        data = base64.b64encode(open(path,'rb').read()).decode()
-        tag = f"video autoplay loop muted class='background-vid'" if ext in ['mp4','webm'] else f"img src='data:image/{ext};base64,{data}' class='background-img'"
-        bg_ph.markdown(f"<{tag}></{tag.split()[0]}>", unsafe_allow_html=True)
+        # Background
+    bg_path = save_file(bg_up, 'background')
+    if bg_path and os.path.exists(bg_path):
+        ext = bg_path.split('.')[-1].lower()
+        data = base64.b64encode(open(bg_path,'rb').read()).decode()
+        if ext in ['mp4','webm']:
+            bg_ph.markdown(
+                f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>",
+                unsafe_allow_html=True
+            )
+        else:
+            bg_ph.markdown(
+                f"<img src='data:image/{ext};base64,{data}' class='background-img'>",
+                unsafe_allow_html=True
+            )
     # Logo
     path = save_file(logo_up, 'logo')
     if path:
@@ -144,10 +152,16 @@ if start_btn and csv_up:
         if animation == 'Scrolling':
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
-        elif animation == 'Rolodex':
-            # single vertical marquee of one random name
+                elif animation == 'Rolodex':
+            # Rolodex: single vertical marquee of one random name
             name = random.choice(names)
-            name_html = f"<marquee direction='up' scrollamount='10'><div class='winner-name'>{name}</div></marquee>"
+            # calculate marquee height to match text and padding
+            marquee_height = font_size + backdrop_padding * 2
+            name_html = (
+                f"<marquee direction='up' scrollamount='10' height='{marquee_height}px' loop='true'>"
+                f"<span class='winner-name'>{name}</span>"
+                f"</marquee>"
+            )
         elif animation == 'Letter-by-Letter':
             full = random.choice(names)
             for i in range(1, len(full)+1):
