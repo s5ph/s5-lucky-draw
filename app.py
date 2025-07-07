@@ -109,4 +109,9 @@ fullscreen_style = f"""
 
 st.markdown(fullscreen_style, unsafe_allow_html=True)
 
-# Placeholder for remaining logic: file saving, draw control, winner picking, audio/video rendering, confetti, etc.
+# Draw control section in sidebar
+st.sidebar.markdown("## 🎯 Draw Controls")
+start_draw = st.sidebar.button("🎲 Start Draw")
+export_winners = st.sidebar.button("📤 Export Winners")
+
+# Placeholder for remaining logic: file saving, draw execution, winner picking, audio/video rendering, confetti, etc.
