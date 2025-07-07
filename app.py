@@ -124,13 +124,15 @@ if export and os.path.exists(WINNERS_FILE):
 # --- Run Draw Logic ---
 if start and csv_upload is not None:
     df = pd.read_csv(csv_upload)
-    # case-insensitive name column
-    name_col = next((c for c in df.columns if c.lower() == "name"), None)
+    # Detect columns case-insensitive
+    id_col = next((c for c in df.columns if c.lower() == 'id'), None)
+    name_col = next((c for c in df.columns if c.lower() == 'name'), None)
+    acc_col = next((c for c in df.columns if 'account' in c.lower()), None)
     if df.empty or name_col is None:
         st.error("CSV must contain a 'Name' column.")
     else:
-        ids = df['ID'] if 'ID' in df.columns else None
-        acc = df['Account Name'] if 'Account Name' in df.columns else None
+        ids = df[id_col] if id_col else None
+        acc = df[acc_col] if acc_col else None
         # placeholders
         disp = st.empty()
         timer = st.empty()
