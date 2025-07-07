@@ -178,15 +178,16 @@ if start_draw and csv_up:
     start_time = time.time()
     while (elapsed := time.time() - start_time) < draw_duration:
         name = random.choice(names)
-        scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{name}</div></div></div>", unsafe_allow_html=True)
-        if show_left_timer:
-            left_timer_ph.markdown(f"<div class='timer-left'>⏳ {draw_duration - elapsed:.1f}s</div>", unsafe_allow_html=True)
-        else:
-            left_timer_ph.empty()
-        if show_right_timer:
-            right_timer_ph.markdown(f"<div class='timer-right'>⏳ {draw_duration - elapsed:.1f}s</div>", unsafe_allow_html=True)
-        else:
-            right_timer_ph.empty()
+        remaining = draw_duration - elapsed
+        # Construct timer HTML based on toggles
+        timer_left_html = f"<div class='timer-left'>⏳ {remaining:.1f}s</div>" if show_left_timer else ""
+        timer_right_html = f"<div class='timer-right'>⏳ {remaining:.1f}s</div>" if show_right_timer else ""
+        # Render background, logo, timers, and scrolling name
+        scroll_ph.markdown(
+            f"<div class='draw-container'>{bg_html}{logo_html}{timer_left_html}{timer_right_html}" +
+            f"<div class='winner-backdrop'><div class='winner-name'>{name}</div></div></div>",
+            unsafe_allow_html=True
+        )
         time.sleep(0.1)
 
     # Final winners
@@ -206,7 +207,13 @@ if start_draw and csv_up:
         (" | " + str(r[acc_col]) if show_account and acc_col else "")
         for _, r in winners.iterrows()
     ])
-    scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>", unsafe_allow_html=True)
+    scroll_ph.markdown(
+        f"<div class='draw-container'>{bg_html}{logo_html}" +
+        (f"<div class='timer-left'></div>" if show_left_timer else "") +
+        (f"<div class='timer-right'></div>" if show_right_timer else "") +
+        f"<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>",
+        unsafe_allow_html=True
+    )
     left_timer_ph.empty()
     right_timer_ph.empty()
-    winners.to_csv(WINNERS_FILE, index=False)
+    winners.to_csv(WINNERS_FILE, index=False)(WINNERS_FILE, index=False)
