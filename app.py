@@ -138,21 +138,23 @@ if start_draw and csv_up:
         st.error("CSV must contain a 'Name' column.")
         st.stop()
 
-    # Show background once
+        # Prepare background and logo HTML
+    bg_html = ''
     if bg_path and os.path.exists(bg_path):
         ext = bg_path.split('.')[-1].lower()
         data = base64.b64encode(open(bg_path,'rb').read()).decode()
         if ext in ['mp4','webm']:
-            bg_ph.markdown(f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>", unsafe_allow_html=True)
+            bg_html = f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>"
         else:
-            bg_ph.markdown(f"<img src='data:image/{ext};base64,{data}' class='background-img'>", unsafe_allow_html=True)
-    # Show logo once
+            bg_html = f"<img src='data:image/{ext};base64,{data}' class='background-img'>"
+    logo_html = ''
     if logo_path and os.path.exists(logo_path):
         ext = logo_path.split('.')[-1].lower()
         data = base64.b64encode(open(logo_path,'rb').read()).decode()
-        logo_ph.markdown(f"<img src='data:image/{ext};base64,{data}' class='logo-img'>", unsafe_allow_html=True)
+        logo_html = f"<img src='data:image/{ext};base64,{data}' class='logo-img'>"
 
     # Play drumroll
+    if not mute_audio and dr_path and os.path.exists(dr_path):
     if not mute_audio and dr_path and os.path.exists(dr_path):
         ddata = base64.b64encode(open(dr_path,'rb').read()).decode()
         audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{ddata}' type='audio/mp3'></audio>", unsafe_allow_html=True)
@@ -160,9 +162,12 @@ if start_draw and csv_up:
     # Scrolling names effect
     names = df[name_col].dropna().tolist()
     start_time = time.time()
-    while (elapsed := time.time() - start_time) < draw_duration:
+        while (elapsed := time.time() - start_time) < draw_duration:
         name = random.choice(names)
-        scroll_ph.markdown(f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{name}</div></div></div>", unsafe_allow_html=True)
+        scroll_ph.markdown(
+            f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{name}</div></div></div>",
+            unsafe_allow_html=True
+        )
         timer_ph.markdown(f"<div class='timer'>⏳ {draw_duration - elapsed:.1f}s</div>", unsafe_allow_html=True)
         time.sleep(0.1)
 
