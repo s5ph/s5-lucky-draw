@@ -138,14 +138,32 @@ if start_draw and csv_up:
 
     names = df[name_col].dropna().tolist()
     start_time = time.time()
-    while time.time() - start_time < draw_duration:
+        while time.time() - start_time < draw_duration:
         rem = draw_duration - (time.time() - start_time)
         left_html = f"<div class='timer-left'>⏳ {rem:.1f}s</div>" if show_left_timer else ''
         right_html = f"<div class='timer-right'>⏳ {rem:.1f}s</div>" if show_right_timer else ''
 
+        # Background HTML
+        bg_html = ''
+        if bg_up is not None and bg_b64:
+            if bg_ext in ['mp4','webm']:
+                bg_html = (
+                    f"<video autoplay loop muted class='background-vid'><source src='data:video/{bg_ext};base64,{bg_b64}' type='video/{bg_ext}'></video>"
+                )
+            else:
+                bg_html = (
+                    f"<div style=\"background-image:url(data:image/{bg_ext};base64,{bg_b64}); background-size:cover; position:absolute; width:100%; height:100%; top:0; left:0;\"></div>"
+                )
+        # Logo HTML
+        logo_html = ''
+        if logo_b64:
+            logo_html = f"<img src='data:image/{logo_ext};base64,{logo_b64}' class='logo-img'>"
+
+        # Animation frame
         if animation == 'Scrolling':
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
+            sleep_time = 0.1
         elif animation == 'Rolodex':
             name = random.choice(names)
             marquee_h = font_size + backdrop_padding*2
@@ -154,27 +172,26 @@ if start_draw and csv_up:
                 f"<div class='winner-name'>{name}</div>"
                 f"</marquee>"
             )
-            interval = rolodex_interval / 1000.0
-        else:
+            sleep_time = rolodex_interval / 1000.0
+        else:  # Letter-by-Letter
             full = random.choice(names)
             for i in range(1, len(full)+1):
-                scroll_ph.markdown(f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_b64}); background-size:cover;'>" + (f"<img src='data:image/{logo_ext};base64,{logo_b64}' class='logo-img'>" if logo_b64 else "") + f"{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>", unsafe_allow_html=True)
+                scroll_ph.markdown(
+                    f"<div class='draw-container'>{bg_html}{logo_html}{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>",
+                    unsafe_allow_html=True
+                )
                 time.sleep(0.05)
             continue
 
-        # Render frame
-        scroll_ph.markdown(f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_b64}); background-size:cover;'>" + (f"<img src='data:image/{logo_ext};base64,{logo_b64}' class='logo-img'>" if logo_b64 else "") + f"{left_html}{right_html}<div class='winner-backdrop'>{name_html}</div></div>", unsafe_allow_html=True)
-        time.sleep(interval if animation=='Rolodex' else 0.1)
-
-    # Stop drumroll and play end sounds
-    audio_ph.empty()
-    if cr_up:
-        crash_b64 = base64.b64encode(cr_up.read()).decode(); st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{crash_b64}'></audio>", unsafe_allow_html=True)
-    if ap_up:
-        applause_b64 = base64.b64encode(ap_up.read()).decode(); st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{applause_b64}'></audio>", unsafe_allow_html=True)
+        # Render frame with background and logo
+        scroll_ph.markdown(
+            f"<div class='draw-container'>{bg_html}{logo_html}{left_html}{right_html}<div class='winner-backdrop'>{name_html}</div></div>",
+            unsafe_allow_html=True
+        )
+        time.sleep(sleep_time)
 
     # Final winners
-    winners = df.sample(n=winner_count)
+    winners = df.sample(n=winner_count)(n=winner_count)
     final_html = '<br>'.join([(str(r[id_col])+' | ' if show_id and id_col else '')+(str(r[name_col]) if show_name else '')+(' | '+str(r[acc_col]) if show_account and acc_col else '') for _,r in winners.iterrows()])
     scroll_ph.markdown(f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_b64}); background-size:cover;'><div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>", unsafe_allow_html=True)
     winners.to_csv(WINNERS_FILE, index=False)
