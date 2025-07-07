@@ -90,13 +90,14 @@ if start_btn:
     start_t = time.time()
     elapsed = 0
     frame = 0
+    last_idx = -1
     while elapsed < draw_duration:
         elapsed = time.time() - start_t
         rem = max(0, draw_duration - elapsed)
         if animation == "Scrolling":
             show_name = random.choice(names)
         elif animation == "Rolodex":
-            idx = (frame // max(1,int(rolodex_interval/0.1))) % len(names)
+            idx = int(elapsed // rolodex_interval) % len(names)
             show_name = names[idx]
         else:
             show_name = random.choice(names)
@@ -130,4 +131,17 @@ if start_btn:
         " | ".join(str(row[col]) for col in (id_col, name_col, acc_col) if col)
         for _, row in winners.iterrows()
     )
-    draw_ph.markdo_
+    draw_ph.markdown(f"""
+    <div style="position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;">
+        {bg_html}
+        {logo_html}
+        <div style="position:relative;z-index:3;padding:{backdrop_pad}px;background:{backdrop_color};color:{font_color};font-size:{font_size+10}px;border-radius:10px;">
+            {final_html}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    winners.to_csv(WINNERS_FILE, index=False)
+
+if export_btn and os.path.exists(WINNERS_FILE):
+    with open(WINNERS_FILE, "rb") as f:
+        st.sidebar.download_button("Download Winners CSV", f, file_name="winners.csv")
