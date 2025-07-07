@@ -114,6 +114,12 @@ with st.sidebar.expander("🎯 Draw Controls", expanded=True):
     start_draw = st.button("🎲 Start Draw")
     export_winners = st.button("📤 Export Winners")
 
+# Display options for result fields
+with st.sidebar.expander("📋 Display Columns", expanded=False):
+    show_id = st.checkbox("Show ID", value=True)
+    show_name = st.checkbox("Show Name", value=True)
+    show_account = st.checkbox("Show Account ID", value=True)
+
 # Text and appearance settings in sidebar
 with st.sidebar.expander("🔤 Text Appearance", expanded=False):
     font_size = st.slider("Font Size (px)", 20, 120, saved.get("font_size", 48))
@@ -176,7 +182,15 @@ if start_draw and csv_upload is not None:
             placeholder.markdown(f"<div class='winner-backdrop'><div class='winner-name' style='color:{font_color}; font-size:{font_size}px;'>{random.choice(names)}</div></div>", unsafe_allow_html=True)
             time.sleep(1)
 
-        winner = random.choice(names)
+        winner_row = df.sample(1).iloc[0]
+        winner_display = []
+        if show_id and 'id' in winner_row:
+            winner_display.append(str(winner_row['id']))
+        if show_name and 'name' in winner_row:
+            winner_display.append(str(winner_row['name']))
+        if show_account and 'account' in winner_row:
+            winner_display.append(str(winner_row['account']))
+        winner = " | ".join(winner_display)
         st.balloons()
 
         # Stop drumroll, play crash and applause
