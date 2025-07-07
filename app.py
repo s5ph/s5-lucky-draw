@@ -1,4 +1,3 @@
-
 # Random Winner Picker – Final Corrected Version
 
 import streamlit as st
@@ -206,14 +205,24 @@ if start_draw and csv_up:
 
     # Final winners
     winners = df.sample(n=winner_count)
-    final_html = '<br>'.join([
-        ''.join(filter(None,[str(r[id_col]) if show_id and id_col else '',
-                            str(r[name_col]) if show_name else '',
-                            str(r[acc_col]) if show_account and acc_col else ''])).replace('',' | ')
-        for _,r in winners.iterrows()
-    ])
+    # Build display for winners correctly
+    final_txt = []
+    for _, r in winners.iterrows():
+        parts = []
+        if show_id and id_col:
+            parts.append(str(r[id_col]))
+        if show_name:
+            parts.append(str(r[name_col]))
+        if show_account and acc_col:
+            parts.append(str(r[acc_col]))
+        final_txt.append(" | ".join(parts))
+    final_html = "<br>".join(final_txt)
+    # Render final winners
     scroll_ph.markdown(
-        f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>",
+        f"<div class='draw-container'>{bg_html}{logo_html}" +
+        f"<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>",
         unsafe_allow_html=True
     )
     winners.to_csv(WINNERS_FILE, index=False)
+
+# End of Script
