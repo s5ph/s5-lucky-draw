@@ -117,28 +117,27 @@ if start_draw and csv_up:
         st.error("CSV must contain a 'Name' column.")
         st.stop()
 
-    # Load background once
-    bg_path = save_file(bg_up, 'background')
-    if bg_path and os.path.exists(bg_path):
-        ext = bg_path.rsplit('.',1)[-1].lower()
-        data = base64.b64encode(open(bg_path,'rb').read()).decode()
-        if ext in ['mp4','webm']:
-            bg_ph.markdown(f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>", unsafe_allow_html=True)
-        else:
-            bg_ph.markdown(f"<img src='data:image/{ext};base64,{data}' class='background-img'>", unsafe_allow_html=True)
+    # Prepare background data
+    bg_data = None
+    bg_ext = None
+    if bg_up is not None:
+        bg_bytes = bg_up.read()
+        bg_ext = bg_up.name.split('.')[-1].lower()
+        bg_data = base64.b64encode(bg_bytes).decode()
 
-    # Load logo once
-    logo_path = save_file(logo_up, 'logo')
-    if logo_path and os.path.exists(logo_path):
-        ext = logo_path.rsplit('.',1)[-1].lower()
-        data = base64.b64encode(open(logo_path,'rb').read()).decode()
-        logo_ph.markdown(f"<img src='data:image/{ext};base64,{data}' class='logo-img'>", unsafe_allow_html=True)
+    # Prepare logo data
+    logo_data = None
+    logo_ext = None
+    if logo_up is not None:
+        logo_bytes = logo_up.read()
+        logo_ext = logo_up.name.split('.')[-1].lower()
+        logo_data = base64.b64encode(logo_bytes).decode()
 
     # Play drumroll
-    dr_path = save_file(dr_up, 'drumroll')
-    if dr_path and os.path.exists(dr_path):
-        ddata = base64.b64encode(open(dr_path,'rb').read()).decode()
-        audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{ddata}'></audio>", unsafe_allow_html=True)
+    if dr_up is not None:
+        drum_bytes = dr_up.read()
+        drum_b64 = base64.b64encode(drum_bytes).decode()
+        audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{drum_b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
     names = df[name_col].dropna().tolist()
     start_time = time.time()
@@ -147,47 +146,62 @@ if start_draw and csv_up:
         left_html = f"<div class='timer-left'>⏳ {rem:.1f}s</div>" if show_left_timer else ''
         right_html = f"<div class='timer-right'>⏳ {rem:.1f}s</div>" if show_right_timer else ''
 
+        # Choose animation style
         if animation == 'Scrolling':
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
         elif animation == 'Rolodex':
             name = random.choice(names)
-            marquee_height = font_size + backdrop_padding*2
+            marquee_h = font_size + backdrop_padding*2
             name_html = (
-                f"<marquee direction='up' scrollamount='5' height='{marquee_height}px'>"
+                f"<marquee direction='up' scrollamount='5' height='{marquee_h}px'>"
                 f"<div class='winner-name'>{name}</div>"
                 f"</marquee>"
             )
         else:  # Letter-by-Letter
             full = random.choice(names)
             for i in range(1, len(full)+1):
-                scroll_ph.markdown(f"<div class='draw-container'>{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>", unsafe_allow_html=True)
+                scroll_ph.markdown(
+                    f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_data}); background-size:cover;'>" +
+                    (f"<img src='data:image/{logo_ext};base64,{logo_data}' class='logo-img'>" if logo_data else "") +
+                    f"{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>",
+                    unsafe_allow_html=True
+                )
                 time.sleep(0.05)
             continue
 
-        scroll_ph.markdown(f"<div class='draw-container'>{left_html}{right_html}<div class='winner-backdrop'>{name_html}</div></div>", unsafe_allow_html=True)
+        # Render frame with background and logo
+        scroll_ph.markdown(
+            f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_data}); background-size:cover;'>" +
+            (f"<img src='data:image/{logo_ext};base64,{logo_data}' class='logo-img'>" if logo_data else "") +
+            f"{left_html}{right_html}<div class='winner-backdrop'>{name_html}</div></div>",
+            unsafe_allow_html=True
+        )
         time.sleep(0.1)
 
-    # Stop drumroll and play end sounds
+    # Stop drumroll
     audio_ph.empty()
-    cr_path = save_file(cr_up, 'crash')
-    if cr_path and os.path.exists(cr_path):
-        cdata = base64.b64encode(open(cr_path,'rb').read()).decode()
-        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{cdata}'></audio>", unsafe_allow_html=True)
-    ap_path = save_file(ap_up, 'applause')
-    if ap_path and os.path.exists(ap_path):
-        adata = base64.b64encode(open(ap_path,'rb').read()).decode()
-        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{adata}'></audio>", unsafe_allow_html=True)
+    if cr_up is not None:
+        crash_b64 = base64.b64encode(cr_up.read()).decode()
+        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{crash_b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
+    if ap_up is not None:
+        applause_b64 = base64.b64encode(ap_up.read()).decode()
+        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{applause_b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
-    # Final winners
+    # Display final winners
     winners = df.sample(n=winner_count)
-    final_html = "<br>".join([
-        (str(r[id_col]) + " | " if show_id and id_col else "") +
-        (str(r[name_col]) if show_name else "") +
-        (" | " + str(r[acc_col]) if show_account and acc_col else "")
+    final_html = '<br>'.join([
+        (str(r[id_col]) + ' | ' if show_id and id_col else '') +
+        (str(r[name_col]) if show_name else '') +
+        (' | ' + str(r[acc_col]) if show_account and acc_col else '')
         for _, r in winners.iterrows()
     ])
-    scroll_ph.markdown(f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>", unsafe_allow_html=True)
+    scroll_ph.markdown(
+        f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_data}); background-size:cover;'>" +
+        (f"<img src='data:image/{logo_ext};base64,{logo_data}' class='logo-img'>" if logo_data else "") +
+        f"<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>",
+        unsafe_allow_html=True
+    )
     winners.to_csv(WINNERS_FILE, index=False)
 
 # End of Script
