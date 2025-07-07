@@ -1,4 +1,4 @@
-# Random Winner Picker – Final Corrected Version
+# Random Winner Picker – Enhanced Rolodex Speed Controls
 
 import streamlit as st
 import pandas as pd
@@ -13,6 +13,7 @@ st.set_page_config("🎰 S5.COM Lucky Draw", layout="wide")
 ASSETS_DIR = "uploaded_assets"
 SETTINGS_FILE = "settings.json"
 WINNERS_FILE = "winners.csv"
+
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
 # Helpers
@@ -57,6 +58,11 @@ st.sidebar.markdown("---")
 animation = st.sidebar.selectbox("Animation Style", ["Scrolling","Rolodex","Letter-by-Letter"], index=["Scrolling","Rolodex","Letter-by-Letter"].index(saved.get('animation','Scrolling')), key="animation")
 
 st.sidebar.markdown("---")
+# Rolodex Speed & Interval (only for Rolodex)
+rolodex_speed = st.sidebar.slider("Rolodex Scroll Speed", 1, 50, saved.get('rolodex_speed',10), key="rolodex_speed")
+rolodex_interval = st.sidebar.slider("Rolodex Interval (ms)", 50, 1000, saved.get('rolodex_interval',200), key="rolodex_interval")
+
+st.sidebar.markdown("---")
 # Appearance & Timers
 draw_duration = st.sidebar.slider("Draw Duration (sec)", 5, 60, saved.get('draw_duration',15), key="draw_duration")
 winner_count = st.sidebar.slider("Number of Winners", 1, 10, saved.get('winner_count',3), key="winner_count")
@@ -80,7 +86,8 @@ if save_btn:
         'display_cols':display_cols, 'animation':animation, 'draw_duration':draw_duration,
         'winner_count':winner_count, 'font_size':font_size, 'font_color':font_color,
         'backdrop_color':backdrop_color, 'backdrop_opacity':backdrop_opacity, 'backdrop_padding':backdrop_padding,
-        'logo_width':logo_width, 'show_left_timer':show_left_timer, 'show_right_timer':show_right_timer
+        'logo_width':logo_width, 'show_left_timer':show_left_timer, 'show_right_timer':show_right_timer,
+        'rolodex_speed':rolodex_speed, 'rolodex_interval':rolodex_interval
     })
     st.sidebar.success("Settings saved!")
 
@@ -100,8 +107,6 @@ html, body, [data-testid='stApp'] {{ margin:0; padding:0; height:100%; }}
 st.markdown(css, unsafe_allow_html=True)
 
 # Placeholders
-bg_ph = st.empty()
-logo_ph = st.empty()
 scroll_ph = st.empty()
 left_ph = st.empty()
 right_ph = st.empty()
@@ -117,27 +122,19 @@ if start_draw and csv_up:
         st.error("CSV must contain a 'Name' column.")
         st.stop()
 
-    # Prepare background data
-    bg_data = None
-    bg_ext = None
-    if bg_up is not None:
-        bg_bytes = bg_up.read()
-        bg_ext = bg_up.name.split('.')[-1].lower()
-        bg_data = base64.b64encode(bg_bytes).decode()
-
-    # Prepare logo data
-    logo_data = None
-    logo_ext = None
-    if logo_up is not None:
-        logo_bytes = logo_up.read()
-        logo_ext = logo_up.name.split('.')[-1].lower()
-        logo_data = base64.b64encode(logo_bytes).decode()
+    # Prepare media bytes
+    bg_ext = logo_ext = drum_ext = None
+    bg_b64 = logo_b64 = drum_b64 = None
+    if bg_up:
+        bg_bytes = bg_up.read(); bg_ext = bg_up.name.split('.')[-1].lower(); bg_b64 = base64.b64encode(bg_bytes).decode()
+    if logo_up:
+        logo_bytes = logo_up.read(); logo_ext = logo_up.name.split('.')[-1].lower(); logo_b64 = base64.b64encode(logo_bytes).decode()
+    if dr_up:
+        d_bytes = dr_up.read(); drum_b64 = base64.b64encode(d_bytes).decode()
 
     # Play drumroll
-    if dr_up is not None:
-        drum_bytes = dr_up.read()
-        drum_b64 = base64.b64encode(drum_bytes).decode()
-        audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{drum_b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
+    if drum_b64:
+        audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{drum_b64}'></audio>", unsafe_allow_html=True)
 
     names = df[name_col].dropna().tolist()
     start_time = time.time()
@@ -146,7 +143,6 @@ if start_draw and csv_up:
         left_html = f"<div class='timer-left'>⏳ {rem:.1f}s</div>" if show_left_timer else ''
         right_html = f"<div class='timer-right'>⏳ {rem:.1f}s</div>" if show_right_timer else ''
 
-        # Choose animation style
         if animation == 'Scrolling':
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
@@ -154,54 +150,31 @@ if start_draw and csv_up:
             name = random.choice(names)
             marquee_h = font_size + backdrop_padding*2
             name_html = (
-                f"<marquee direction='up' scrollamount='5' height='{marquee_h}px'>"
+                f"<marquee direction='up' scrollamount='{rolodex_speed}' height='{marquee_h}px'>"
                 f"<div class='winner-name'>{name}</div>"
                 f"</marquee>"
             )
-        else:  # Letter-by-Letter
+            interval = rolodex_interval / 1000.0
+        else:
             full = random.choice(names)
             for i in range(1, len(full)+1):
-                scroll_ph.markdown(
-                    f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_data}); background-size:cover;'>" +
-                    (f"<img src='data:image/{logo_ext};base64,{logo_data}' class='logo-img'>" if logo_data else "") +
-                    f"{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>",
-                    unsafe_allow_html=True
-                )
+                scroll_ph.markdown(f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_b64}); background-size:cover;'>" + (f"<img src='data:image/{logo_ext};base64,{logo_b64}' class='logo-img'>" if logo_b64 else "") + f"{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>", unsafe_allow_html=True)
                 time.sleep(0.05)
             continue
 
-        # Render frame with background and logo
-        scroll_ph.markdown(
-            f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_data}); background-size:cover;'>" +
-            (f"<img src='data:image/{logo_ext};base64,{logo_data}' class='logo-img'>" if logo_data else "") +
-            f"{left_html}{right_html}<div class='winner-backdrop'>{name_html}</div></div>",
-            unsafe_allow_html=True
-        )
-        time.sleep(0.1)
+        # Render frame
+        scroll_ph.markdown(f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_b64}); background-size:cover;'>" + (f"<img src='data:image/{logo_ext};base64,{logo_b64}' class='logo-img'>" if logo_b64 else "") + f"{left_html}{right_html}<div class='winner-backdrop'>{name_html}</div></div>", unsafe_allow_html=True)
+        time.sleep(interval if animation=='Rolodex' else 0.1)
 
-    # Stop drumroll
+    # Stop drumroll and play end sounds
     audio_ph.empty()
-    if cr_up is not None:
-        crash_b64 = base64.b64encode(cr_up.read()).decode()
-        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{crash_b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
-    if ap_up is not None:
-        applause_b64 = base64.b64encode(ap_up.read()).decode()
-        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{applause_b64}' type='audio/mp3'></audio>", unsafe_allow_html=True)
+    if cr_up:
+        crash_b64 = base64.b64encode(cr_up.read()).decode(); st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{crash_b64}'></audio>", unsafe_allow_html=True)
+    if ap_up:
+        applause_b64 = base64.b64encode(ap_up.read()).decode(); st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{applause_b64}'></audio>", unsafe_allow_html=True)
 
-    # Display final winners
+    # Final winners
     winners = df.sample(n=winner_count)
-    final_html = '<br>'.join([
-        (str(r[id_col]) + ' | ' if show_id and id_col else '') +
-        (str(r[name_col]) if show_name else '') +
-        (' | ' + str(r[acc_col]) if show_account and acc_col else '')
-        for _, r in winners.iterrows()
-    ])
-    scroll_ph.markdown(
-        f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_data}); background-size:cover;'>" +
-        (f"<img src='data:image/{logo_ext};base64,{logo_data}' class='logo-img'>" if logo_data else "") +
-        f"<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>",
-        unsafe_allow_html=True
-    )
+    final_html = '<br>'.join([(str(r[id_col])+' | ' if show_id and id_col else '')+(str(r[name_col]) if show_name else '')+(' | '+str(r[acc_col]) if show_account and acc_col else '') for _,r in winners.iterrows()])
+    scroll_ph.markdown(f"<div class='draw-container' style='background-image:url(data:image/{bg_ext};base64,{bg_b64}); background-size:cover;'><div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>", unsafe_allow_html=True)
     winners.to_csv(WINNERS_FILE, index=False)
-
-# End of Script
