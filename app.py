@@ -179,19 +179,24 @@ if start_draw and csv_up:
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
         elif animation == 'Rolodex':
-            # Rolodex: single vertical marquee cycling through all names
-            marquee_items = ''.join(f"<div class='winner-name'>{n}</div>" for n in names)
-            scroll_ph.markdown(
-                f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><marquee direction='up' scrollamount='5' loop='true'>{marquee_items}</marquee></div></div>",
-                unsafe_allow_html=True
-            )
-            # show timers during rolodex
-            if show_left_timer:
-                left_timer_ph.markdown(f"<div class='timer-left'>⏳ {draw_duration:.1f}s</div>", unsafe_allow_html=True)
-            if show_right_timer:
-                right_timer_ph.markdown(f"<div class='timer-right'>⏳ {draw_duration:.1f}s</div>", unsafe_allow_html=True)
-            time.sleep(draw_duration)
-            break
+        # Rolodex: vertical marquee cycling through all names
+        marquee_items = ''.join(f"<div class='winner-name'>{n}</div>" for n in names)
+        # Render marquee and timers each frame
+        scroll_ph.markdown(
+            f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><marquee direction='up' scrollamount='5'>{marquee_items}</marquee></div></div>",
+            unsafe_allow_html=True
+        )
+        # Update timers
+        if show_left_timer:
+            left_timer_ph.markdown(f"<div class='timer-left'>⏳ {rem:.1f}s</div>", unsafe_allow_html=True)
+        else:
+            left_timer_ph.empty()
+        if show_right_timer:
+            right_timer_ph.markdown(f"<div class='timer-right'>⏳ {rem:.1f}s</div>", unsafe_allow_html=True)
+        else:
+            right_timer_ph.empty()
+        time.sleep(0.1)
+        continue
         elif animation == 'Letter-by-Letter':
             full = random.choice(names)
             for i in range(1, len(full)+1):
