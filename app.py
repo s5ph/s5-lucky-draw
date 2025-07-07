@@ -110,8 +110,13 @@ fullscreen_style = f"""
 st.markdown(fullscreen_style, unsafe_allow_html=True)
 
 # Draw control section in sidebar
-st.sidebar.markdown("## 🎯 Draw Controls")
-start_draw = st.sidebar.button("🎲 Start Draw")
-export_winners = st.sidebar.button("📤 Export Winners")
+with st.sidebar.expander("🎯 Draw Controls", expanded=True):
+    start_draw = st.button("🎲 Start Draw")
+    export_winners = st.button("📤 Export Winners")
+
+# Text and appearance settings in sidebar
+with st.sidebar.expander("🔤 Text Appearance", expanded=False):
+    font_size = st.slider("Font Size (px)", 20, 120, saved.get("font_size", 48))
+    font_color = st.color_picker("Font Color", saved.get("font_color", "#FFFFFF"))
 
 # Placeholder for remaining logic: file saving, draw execution, winner picking, audio/video rendering, confetti, etc.
