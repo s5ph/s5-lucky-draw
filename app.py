@@ -1,4 +1,4 @@
-# Random Winner Picker – Fully Fixed, Functional, and Centered
+# Random Winner Picker – Complete with Left/Right Timers and Toggles
 
 import streamlit as st
 import pandas as pd
@@ -16,9 +16,9 @@ WINNERS_FILE = "winners.csv"
 
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
-# --- Helpers ---
+# --- Helper Functions ---
 def save_file(upload, key):
-    if not upload:
+    if upload is None:
         return None
     ext = upload.name.split('.')[-1]
     path = os.path.join(ASSETS_DIR, f"{key}.{ext}")
@@ -42,7 +42,7 @@ def save_settings(settings):
 saved = load_settings()
 st.sidebar.title("🔧 Settings & Controls")
 
-# File uploads
+# File uploads (unique keys)
 logo_up = st.sidebar.file_uploader("Logo", type=["png","jpg","jpeg"], key="logo_up")
 bg_up = st.sidebar.file_uploader("Background (Image/GIF/Video)", type=["png","jpg","jpeg","gif","mp4"], key="bg_up")
 csv_up = st.sidebar.file_uploader("Participants CSV (ID,Name,Account)", type=["csv"], key="csv_up")
@@ -52,9 +52,13 @@ applause_up = st.sidebar.file_uploader("Applause Sound", type=["mp3","wav"], key
 
 st.sidebar.markdown("---")
 # Display columns
-show_id = st.sidebar.checkbox("Show ID", value=saved.get('show_id', True), key="show_id")
-show_name = st.sidebar.checkbox("Show Name", value=saved.get('show_name', True), key="show_name")
-show_account = st.sidebar.checkbox("Show Account", value=saved.get('show_account', True), key="show_account")
+display_cols = st.sidebar.multiselect(
+    "Display Columns", ["ID", "Name", "Account"],
+    default=[c for c in ["ID","Name","Account"] if saved.get(f'show_{c.lower()}', True)]
+)
+show_id = "ID" in display_cols
+show_name = "Name" in display_cols
+show_account = "Account" in display_cols
 
 st.sidebar.markdown("---")
 # Appearance
@@ -67,7 +71,7 @@ backdrop_padding = st.sidebar.slider("Backdrop Padding (px)", 0, 50, saved.get('
 winner_offset = st.sidebar.slider("Winner Y Offset (px)", 0, 600, saved.get('winner_offset', 200), key="winner_offset")
 
 st.sidebar.markdown("---")
-# Draw settings
+# Draw Settings
 draw_duration = st.sidebar.slider("Draw Duration (sec)", 5, 60, saved.get('draw_duration', 15), key="draw_duration")
 winner_count = st.sidebar.slider("Number of Winners", 1, 10, saved.get('winner_count', 3), key="winner_count")
 
@@ -78,6 +82,11 @@ mute_audio = st.sidebar.checkbox("Mute Audio", value=saved.get('mute_audio', Fal
 show_confetti = st.sidebar.checkbox("Show Confetti", value=saved.get('show_confetti', False), key="show_confetti")
 
 st.sidebar.markdown("---")
+# Timer toggles
+show_left_timer = st.sidebar.checkbox("Show Left Timer", value=saved.get('show_left_timer', True), key="show_left_timer")
+show_right_timer = st.sidebar.checkbox("Show Right Timer", value=saved.get('show_right_timer', True), key="show_right_timer")
+
+st.sidebar.markdown("---")
 # Actions
 start_draw = st.sidebar.button("🎲 Start Draw", key="start_draw")
 export_csv = st.sidebar.button("📥 Export Winners CSV", key="export_csv")
@@ -85,15 +94,16 @@ save_btn = st.sidebar.button("💾 Save Settings", key="save_settings")
 
 # Save settings
 if save_btn:
-    settings = dict(
-        show_id=show_id, show_name=show_name, show_account=show_account,
-        font_size=font_size, font_color=font_color, logo_width=logo_width,
-        backdrop_color=backdrop_color, backdrop_opacity=backdrop_opacity,
-        backdrop_padding=backdrop_padding, winner_offset=winner_offset,
-        draw_duration=draw_duration, winner_count=winner_count,
-        audio_volume=audio_volume, mute_audio=mute_audio,
-        show_confetti=show_confetti
-    )
+    settings = {
+        'font_size': font_size, 'font_color': font_color, 'logo_width': logo_width,
+        'backdrop_color': backdrop_color, 'backdrop_opacity': backdrop_opacity,
+        'backdrop_padding': backdrop_padding, 'winner_offset': winner_offset,
+        'draw_duration': draw_duration, 'winner_count': winner_count,
+        'audio_volume': audio_volume, 'mute_audio': mute_audio,
+        'show_confetti': show_confetti,
+        'show_left_timer': show_left_timer, 'show_right_timer': show_right_timer,
+        'show_id': show_id, 'show_name': show_name, 'show_account': show_account
+    }
     save_settings(settings)
     st.sidebar.success("Settings saved!")
 
@@ -105,8 +115,9 @@ html, body, [data-testid='stApp'] {{ margin:0; padding:0; height:100%; }}
 .background-img, .background-vid {{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0.5; z-index:0; }}
 .logo-img {{ position:absolute; top:10px; left:10px; width:{logo_width}px; z-index:2; }}
 .winner-backdrop {{ display:inline-block; padding:{backdrop_padding}px; background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity}); border-radius:10px; z-index:3; }}
-.winner-name {{ font-size:{font_size}px; color:{font_color}; margin:0; z-index:4; font-weight:bold; }}
-.timer {{ font-size:24px; color:{font_color}; margin:0; position:absolute; bottom:20px; z-index:3; }}
+.winner-name {{ font-size:{font_size}px; color:{font_color}; margin:0; z-index:4; font-weight:bold; transform: translateY({winner_offset}px); }}
+.timer-left {{ position:absolute; left:20px; top:50%; transform:translateY(-50%); font-size:24px; color:{font_color}; z-index:3; }}
+.timer-right {{ position:absolute; right:20px; top:50%; transform:translateY(-50%); font-size:24px; color:{font_color}; z-index:3; }}
 </style>
 """
 st.markdown(css, unsafe_allow_html=True)
@@ -118,7 +129,7 @@ dr_path = save_file(drum_up, 'drumroll')
 cr_path = save_file(crash_up, 'crash')
 ap_path = save_file(applause_up, 'applause')
 
-# Export winners
+# Export winners CSV
 if export_csv and os.path.exists(WINNERS_FILE):
     with open(WINNERS_FILE, 'rb') as f:
         st.sidebar.download_button("Download Winners CSV", f, file_name="winners.csv")
@@ -127,7 +138,8 @@ if export_csv and os.path.exists(WINNERS_FILE):
 bg_ph = st.empty()
 logo_ph = st.empty()
 scroll_ph = st.empty()
-timer_ph = st.empty()
+left_timer_ph = st.empty()
+right_timer_ph = st.empty()
 audio_ph = st.empty()
 
 # --- Draw Logic ---
@@ -141,33 +153,40 @@ if start_draw and csv_up:
         st.error("CSV must contain a 'Name' column.")
         st.stop()
 
-    # Prepare HTML for background and logo
-    bg_html = ""
+    # Build HTML
+    bg_html = ''
     if bg_path and os.path.exists(bg_path):
-        ext = bg_path.split('.')[-1].lower()
+        ext = bg_path.rsplit('.',1)[-1].lower()
         data = base64.b64encode(open(bg_path,'rb').read()).decode()
         if ext in ['mp4','webm']:
             bg_html = f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>"
         else:
             bg_html = f"<img src='data:image/{ext};base64,{data}' class='background-img'>"
-    logo_html = ""
+    logo_html = ''
     if logo_path and os.path.exists(logo_path):
-        ext = logo_path.split('.')[-1].lower()
+        ext = logo_path.rsplit('.',1)[-1].lower()
         data = base64.b64encode(open(logo_path,'rb').read()).decode()
         logo_html = f"<img src='data:image/{ext};base64,{data}' class='logo-img'>"
 
-    # Play drumroll
+    # Drumroll
     if not mute_audio and dr_path and os.path.exists(dr_path):
         ddata = base64.b64encode(open(dr_path,'rb').read()).decode()
         audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{ddata}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
-    # Scroll effect with timer
+    # Scroll effect with dual timers
     names = df[name_col].dropna().tolist()
     start_time = time.time()
     while (elapsed := time.time() - start_time) < draw_duration:
         name = random.choice(names)
         scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{name}</div></div></div>", unsafe_allow_html=True)
-        timer_ph.markdown(f"<div class='timer'>⏳ {draw_duration - elapsed:.1f}s</div>", unsafe_allow_html=True)
+        if show_left_timer:
+            left_timer_ph.markdown(f"<div class='timer-left'>⏳ {draw_duration - elapsed:.1f}s</div>", unsafe_allow_html=True)
+        else:
+            left_timer_ph.empty()
+        if show_right_timer:
+            right_timer_ph.markdown(f"<div class='timer-right'>⏳ {draw_duration - elapsed:.1f}s</div>", unsafe_allow_html=True)
+        else:
+            right_timer_ph.empty()
         time.sleep(0.1)
 
     # Final winners
@@ -180,7 +199,7 @@ if start_draw and csv_up:
         adata = base64.b64encode(open(ap_path,'rb').read()).decode()
         st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{adata}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
-    # Display winners together
+    # Display winners
     final_html = "<br>".join([
         (str(r[id_col]) + " | " if show_id and id_col else "") +
         (str(r[name_col]) if show_name else "") +
@@ -188,5 +207,6 @@ if start_draw and csv_up:
         for _, r in winners.iterrows()
     ])
     scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>", unsafe_allow_html=True)
-    timer_ph.empty()
+    left_timer_ph.empty()
+    right_timer_ph.empty()
     winners.to_csv(WINNERS_FILE, index=False)
