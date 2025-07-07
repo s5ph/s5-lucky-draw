@@ -158,7 +158,7 @@ if start_draw and csv_up:
     if ap_up:
         applause_b64 = base64.b64encode(ap_up.read()).decode()
 
-    names = df[name_col].dropna().tolist()].dropna().tolist()
+    names = df[name_col].dropna().tolist()
     start = time.time()
     while time.time() - start < draw_duration:
         rem = draw_duration - (time.time() - start)
