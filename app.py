@@ -1,4 +1,4 @@
-# Random Winner Picker – Robust, Clean, and Fully Functional
+# Random Winner Picker – Fully Fixed, Functional, and Centered
 
 import streamlit as st
 import pandas as pd
@@ -13,11 +13,12 @@ st.set_page_config("🎰 S5.COM Lucky Draw", layout="wide")
 ASSETS_DIR = "uploaded_assets"
 SETTINGS_FILE = "settings.json"
 WINNERS_FILE = "winners.csv"
+
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
 # --- Helpers ---
 def save_file(upload, key):
-    if upload is None:
+    if not upload:
         return None
     ext = upload.name.split('.')[-1]
     path = os.path.join(ASSETS_DIR, f"{key}.{ext}")
@@ -25,11 +26,13 @@ def save_file(upload, key):
         f.write(upload.getbuffer())
     return path
 
+
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, 'r') as f:
             return json.load(f)
     return {}
+
 
 def save_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
@@ -39,7 +42,7 @@ def save_settings(settings):
 saved = load_settings()
 st.sidebar.title("🔧 Settings & Controls")
 
-# Uploads (unique keys to avoid duplicate IDs)
+# File uploads
 logo_up = st.sidebar.file_uploader("Logo", type=["png","jpg","jpeg"], key="logo_up")
 bg_up = st.sidebar.file_uploader("Background (Image/GIF/Video)", type=["png","jpg","jpeg","gif","mp4"], key="bg_up")
 csv_up = st.sidebar.file_uploader("Participants CSV (ID,Name,Account)", type=["csv"], key="csv_up")
@@ -64,7 +67,7 @@ backdrop_padding = st.sidebar.slider("Backdrop Padding (px)", 0, 50, saved.get('
 winner_offset = st.sidebar.slider("Winner Y Offset (px)", 0, 600, saved.get('winner_offset', 200), key="winner_offset")
 
 st.sidebar.markdown("---")
-# Draw Settings
+# Draw settings
 draw_duration = st.sidebar.slider("Draw Duration (sec)", 5, 60, saved.get('draw_duration', 15), key="draw_duration")
 winner_count = st.sidebar.slider("Number of Winners", 1, 10, saved.get('winner_count', 3), key="winner_count")
 
@@ -80,7 +83,7 @@ start_draw = st.sidebar.button("🎲 Start Draw", key="start_draw")
 export_csv = st.sidebar.button("📥 Export Winners CSV", key="export_csv")
 save_btn = st.sidebar.button("💾 Save Settings", key="save_settings")
 
-# Save Settings
+# Save settings
 if save_btn:
     settings = dict(
         show_id=show_id, show_name=show_name, show_account=show_account,
@@ -95,15 +98,15 @@ if save_btn:
     st.sidebar.success("Settings saved!")
 
 # --- Styles ---
-# Inject CSS with escaped braces to avoid f-string errors
 css = f"""
 <style>
-.draw-container {{ display: flex; align-items: center; justify-content: center; position: relative; width:100%; height:100vh; margin:0; padding:0; }}
+html, body, [data-testid='stApp'] {{ margin:0; padding:0; height:100%; }}
+.draw-container {{ display:flex; align-items:center; justify-content:center; position:relative; width:100%; height:100vh; margin:0; padding:0; }}
 .background-img, .background-vid {{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0.5; z-index:0; }}
 .logo-img {{ position:absolute; top:10px; left:10px; width:{logo_width}px; z-index:2; }}
 .winner-backdrop {{ display:inline-block; padding:{backdrop_padding}px; background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity}); border-radius:10px; z-index:3; }}
-.winner-name {{ font-size:{font_size}px; color:{font_color}; margin:0; z-index:4; font-weight:bold; }}
-.timer {{ font-size:24px; color:{font_color}; margin:0; z-index:3; }}
+.winner-name {{ font-size:{font_size}px; color:{font_color}; margin:0; padding-top:{winner_offset}px; z-index:4; font-weight:bold; }}
+.timer {{ font-size:24px; color:{font_color}; margin:0; position:absolute; bottom:20px; z-index:3; }}
 </style>
 """
 st.markdown(css, unsafe_allow_html=True)
@@ -115,7 +118,7 @@ dr_path = save_file(drum_up, 'drumroll')
 cr_path = save_file(crash_up, 'crash')
 ap_path = save_file(applause_up, 'applause')
 
-# Export Winners CSV
+# Export winners
 if export_csv and os.path.exists(WINNERS_FILE):
     with open(WINNERS_FILE, 'rb') as f:
         st.sidebar.download_button("Download Winners CSV", f, file_name="winners.csv")
@@ -138,8 +141,8 @@ if start_draw and csv_up:
         st.error("CSV must contain a 'Name' column.")
         st.stop()
 
-        # Prepare background and logo HTML
-    bg_html = ''
+    # Prepare HTML for background and logo
+    bg_html = ""
     if bg_path and os.path.exists(bg_path):
         ext = bg_path.split('.')[-1].lower()
         data = base64.b64encode(open(bg_path,'rb').read()).decode()
@@ -147,7 +150,7 @@ if start_draw and csv_up:
             bg_html = f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>"
         else:
             bg_html = f"<img src='data:image/{ext};base64,{data}' class='background-img'>"
-    logo_html = ''
+    logo_html = ""
     if logo_path and os.path.exists(logo_path):
         ext = logo_path.split('.')[-1].lower()
         data = base64.b64encode(open(logo_path,'rb').read()).decode()
@@ -155,26 +158,21 @@ if start_draw and csv_up:
 
     # Play drumroll
     if not mute_audio and dr_path and os.path.exists(dr_path):
-    if not mute_audio and dr_path and os.path.exists(dr_path):
         ddata = base64.b64encode(open(dr_path,'rb').read()).decode()
         audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{ddata}' type='audio/mp3'></audio>", unsafe_allow_html=True)
 
-    # Scrolling names effect
+    # Scroll effect with timer
     names = df[name_col].dropna().tolist()
     start_time = time.time()
-        while (elapsed := time.time() - start_time) < draw_duration:
+    while (elapsed := time.time() - start_time) < draw_duration:
         name = random.choice(names)
-        scroll_ph.markdown(
-            f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{name}</div></div></div>",
-            unsafe_allow_html=True
-        )
+        scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{name}</div></div></div>", unsafe_allow_html=True)
         timer_ph.markdown(f"<div class='timer'>⏳ {draw_duration - elapsed:.1f}s</div>", unsafe_allow_html=True)
         time.sleep(0.1)
 
     # Final winners
     winners = df.sample(n=winner_count)
     audio_ph.empty()
-    # Crash & applause
     if not mute_audio and cr_path and os.path.exists(cr_path):
         cdata = base64.b64encode(open(cr_path,'rb').read()).decode()
         st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{cdata}' type='audio/mp3'></audio>", unsafe_allow_html=True)
@@ -189,6 +187,6 @@ if start_draw and csv_up:
         (" | " + str(r[acc_col]) if show_account and acc_col else "")
         for _, r in winners.iterrows()
     ])
-    scroll_ph.markdown(f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>", unsafe_allow_html=True)
+    scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>", unsafe_allow_html=True)
     timer_ph.empty()
     winners.to_csv(WINNERS_FILE, index=False)
