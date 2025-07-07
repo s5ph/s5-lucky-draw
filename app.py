@@ -182,7 +182,11 @@ if start_draw and csv_upload is not None:
         step_delay = draw_duration / len(scroll_names)
         for name in scroll_names:
             timer_placeholder.markdown(f"<div class='timer'>Drawing...</div>", unsafe_allow_html=True)
-            placeholder.markdown(f"<div class='winner-backdrop'><div class='winner-name' style='color:{font_color}; font-size:{font_size}px;'>{name}</div></div>", unsafe_allow_html=True)
+            placeholder.markdown(
+                f"<div class='winner-backdrop' style='background: rgba({int(backdrop_color[1:3], 16)}, {int(backdrop_color[3:5], 16)}, {int(backdrop_color[5:], 16)}, {backdrop_opacity}); padding: {backdrop_padding}px;'>"
+                f"<div class='winner-name' style='color:{font_color}; font-size:{font_size}px; margin-top:{winner_pos_top}px;'>{name}</div></div>",
+                unsafe_allow_html=True
+            )
             time.sleep(step_delay)
 
         winner_row = df.sample(1).iloc[0]
@@ -215,7 +219,11 @@ if start_draw and csv_upload is not None:
             </audio>
             """, unsafe_allow_html=True)
 
-        placeholder.markdown(f"<div class='winner-backdrop'><div class='winner-name' style='color:{font_color}; font-size:{font_size}px;'>🎉 {winner} 🎉</div></div>", unsafe_allow_html=True)
+        placeholder.markdown(
+            f"<div class='winner-backdrop' style='background: rgba({int(backdrop_color[1:3], 16)}, {int(backdrop_color[3:5], 16)}, {int(backdrop_color[5:], 16)}, {backdrop_opacity}); padding: {backdrop_padding}px;'>"
+            f"<div class='winner-name' style='color:{font_color}; font-size:{font_size}px; margin-top:{winner_pos_top}px;'>🎉 {winner} 🎉</div></div>",
+            unsafe_allow_html=True
+        )
         timer_placeholder.empty()
 
         pd.DataFrame([[winner]], columns=["Winner"]).to_csv(WINNERS_FILE, mode='a', header=not os.path.exists(WINNERS_FILE), index=False)
