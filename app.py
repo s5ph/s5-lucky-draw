@@ -179,12 +179,10 @@ if start_draw and csv_up:
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
         elif animation == 'Rolodex':
-            # stationary vertical cycling (rolodex)
-            idx = int(elapsed / (draw_duration/len(names))) % len(names)
-            name = names[idx]
-            # vertical marquee without random
-            name_html = f"<marquee direction='up' scrollamount='5' height='100'><div class='winner-name'>{name}</div></marquee>"
-        elif animation == 'Letter-by-Letter':
+            # high-speed marquee of random names
+            name = random.choice(names)
+            name_html = f"<marquee scrollamount='20' behavior='alternate'><div class='winner-name'>{name}</div></marquee>"
+        elif animation == 'Letter-by-Letter'::
             full = random.choice(names)
             for i in range(1, len(full)+1):
                 scroll_ph.markdown(
