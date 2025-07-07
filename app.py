@@ -150,6 +150,7 @@ if start_draw and csv_up:
     if name_col is None:
         st.error("CSV must contain a 'Name' column.")
         st.stop()
+
     # prepare HTML
     bg_html = ''
     if bg_path and os.path.exists(bg_path):
@@ -164,44 +165,43 @@ if start_draw and csv_up:
         ext = logo_path.rsplit('.',1)[-1].lower()
         data = base64.b64encode(open(logo_path,'rb').read()).decode()
         logo_html = f"<img src='data:image/{ext};base64,{data}' class='logo-img'>"
-    # drumroll
+    # play drumroll
     if not mute_audio and dr_path and os.path.exists(dr_path):
         ddata = base64.b64encode(open(dr_path,'rb').read()).decode()
         audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{ddata}'></audio>", unsafe_allow_html=True)
-        # animation loop
+
+    # animation loop
     names = df[name_col].dropna().tolist()
     start_time = time.time()
-    while time.time() - start_time < draw_duration:
+    while True:
         elapsed = time.time() - start_time
+        if elapsed > draw_duration:
+            break
         rem = draw_duration - elapsed
-        # pick name based on animation
+        # build timers
+        left_html = f"<div class='timer-left'>⏳ {rem:.1f}s</div>" if show_left_timer else ''
+        right_html = f"<div class='timer-right'>⏳ {rem:.1f}s</div>" if show_right_timer else ''
+
+        # animation branches
         if animation == 'Scrolling':
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
         elif animation == 'Rolodex':
-        # Rolodex: vertical marquee cycling through all names
-        marquee_items = ''.join(f"<div class='winner-name'>{n}</div>" for n in names)
-        # Render marquee and timers each frame
-        scroll_ph.markdown(
-            f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><marquee direction='up' scrollamount='5'>{marquee_items}</marquee></div></div>",
-            unsafe_allow_html=True
-        )
-        # Update timers
-        if show_left_timer:
-            left_timer_ph.markdown(f"<div class='timer-left'>⏳ {rem:.1f}s</div>", unsafe_allow_html=True)
-        else:
-            left_timer_ph.empty()
-        if show_right_timer:
-            right_timer_ph.markdown(f"<div class='timer-right'>⏳ {rem:.1f}s</div>", unsafe_allow_html=True)
-        else:
-            right_timer_ph.empty()
-        time.sleep(0.1)
-        continue
+            # vertical marquee of all names
+            marquee_items = ''.join(f"<div class='winner-name'>{n}</div>" for n in names)
+            scroll_ph.markdown(
+                f"<div class='draw-container'>{bg_html}{logo_html}{left_html}{right_html}" +
+                f"<div class='winner-backdrop'><marquee direction='up' scrollamount='5'>{marquee_items}</marquee></div></div>",
+                unsafe_allow_html=True
+            )
+            time.sleep(0.1)
+            continue
         elif animation == 'Letter-by-Letter':
             full = random.choice(names)
             for i in range(1, len(full)+1):
                 scroll_ph.markdown(
-                    f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>",
+                    f"<div class='draw-container'>{bg_html}{logo_html}{left_html}{right_html}" +
+                    f"<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>",
                     unsafe_allow_html=True
                 )
                 time.sleep(0.05)
@@ -215,17 +215,41 @@ if start_draw and csv_up:
         else:
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
-        # timers
-        left_html = f"<div class='timer-left'>⏳ {rem:.1f}s</div>" if show_left_timer else ''
-        right_html = f"<div class='timer-right'>⏳ {rem:.1f}s</div>" if show_right_timer else ''
-        # render frame with animation effect
+
+        # render frame
         scroll_ph.markdown(
             f"<div class='draw-container'>{bg_html}{logo_html}{left_html}{right_html}" +
             f"<div class='winner-backdrop'>{name_html}</div></div>",
             unsafe_allow_html=True
         )
         time.sleep(0.1)
+
     # final winners
+    winners = df.sample(n=winner_count)
+    audio_ph.empty()
+    if not mute_audio and cr_path and os.path.exists(cr_path):
+        cdata = base64.b64encode(open(cr_path,'rb').read()).decode()
+        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{cdata}'></audio>", unsafe_allow_html=True)
+    if not mute_audio and ap_path and os.path.exists(ap_path):
+        adata = base64.b64encode(open(ap_path,'rb').read()).decode()
+        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{adata}'></audio>", unsafe_allow_html=True)
+    # display winners
+    final_html = "<br>".join([
+        (str(r[id_col]) + " | " if show_id and id_col else "") +
+        (str(r[name_col]) if show_name else "") +
+        (" | " + str(r[acc_col]) if show_account and acc_col else "")
+        for _, r in winners.iterrows()
+    ])
+    scroll_ph.markdown(
+        f"<div class='draw-container'>{bg_html}{logo_html}{left_html}{right_html}" +
+        f"<div class='winner-backdrop'><div class='winner-name'>{final_html}</div></div></div>",
+        unsafe_allow_html=True
+    )
+    left_timer_ph.empty()
+    right_timer_ph.empty()
+    winners.to_csv(WINNERS_FILE, index=False)
+# final winners
+
     winners = df.sample(n=winner_count)
     audio_ph.empty()
     if not mute_audio and cr_path and os.path.exists(cr_path):
