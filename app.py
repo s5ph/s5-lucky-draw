@@ -184,7 +184,7 @@ if start_draw and csv_up:
             name = names[idx]
             # vertical marquee without random
             name_html = f"<marquee direction='up' scrollamount='5' height='100'><div class='winner-name'>{name}</div></marquee>"
-        elif animation == 'Letter-by-Letter'::
+        elif animation == 'Letter-by-Letter':
             full = random.choice(names)
             for i in range(1, len(full)+1):
                 scroll_ph.markdown(
