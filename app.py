@@ -1,202 +1,197 @@
-# Random Winner Picker – Final Stable Version
-
 import streamlit as st
 import pandas as pd
 import random
-import json
 import time
 import base64
 import os
 
-# --- Configuration ---
-st.set_page_config("🎰 S5.COM Lucky Draw", layout="wide")
-ASSETS_DIR = "uploaded_assets"
-SETTINGS_FILE = "settings.json"
-WINNERS_FILE = "winners.csv"
+st.set_page_config("S5 Lucky Draw", layout="wide")
 
-os.makedirs(ASSETS_DIR, exist_ok=True)
+# --- Sidebar controls ---
+st.sidebar.title("S5 Lucky Draw Controls")
+uploaded_logo = st.sidebar.file_uploader("Upload Logo", type=["png", "jpg", "jpeg"])
+uploaded_bg = st.sidebar.file_uploader("Upload Background (Image/Video)", type=["png", "jpg", "jpeg", "gif", "mp4"])
+uploaded_csv = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
-# --- Helpers ---
-def encode_file(upload):
-    if not upload:
-        return None, None
-    data = upload.read()
-    upload.seek(0)
-    ext = upload.name.split('.')[-1].lower()
-    return base64.b64encode(data).decode(), ext
+with st.sidebar.expander("Animation & Appearance", expanded=True):
+    animation = st.selectbox("Draw Animation Style", [
+        "Scrolling", "Rolodex", "Letter-by-Letter", "Fade In", "Slide In"
+    ])
+    font_size = st.slider("Font Size", 30, 120, 60)
+    font_color = st.color_picker("Font Color", "#FFFFFF")
+    backdrop_color = st.color_picker("Backdrop Color", "#000000")
+    backdrop_opacity = st.slider("Backdrop Opacity", 0.0, 1.0, 0.5)
+    logo_width = st.slider("Logo Width (px)", 80, 600, 200)
+    winner_count = st.number_input("Number of Winners", 1, 10, 1)
+    draw_time = st.slider("Draw Duration (s)", 5, 60, 10)
+    show_timer_left = st.checkbox("Show Timer Left", value=True)
+    show_timer_right = st.checkbox("Show Timer Right", value=True)
+    winner_offset = st.slider("Winner Vertical Offset", -200, 200, 0)
 
+if animation == "Rolodex":
+    with st.sidebar.expander("Rolodex Settings", expanded=True):
+        rolodex_speed = st.slider("Rolodex Marquee Scrollamount", 1, 50, 10)
+        rolodex_interval = st.slider("Rolodex Name Interval (ms)", 10, 500, 100)
 
-def load_settings():
-    if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, 'r') as f:
-            return json.load(f)
-    return {}
-
-
-def save_settings(settings):
-    with open(SETTINGS_FILE, 'w') as f:
-        json.dump(settings, f)
-
-# --- Sidebar Controls ---
-saved = load_settings()
-st.sidebar.title("🔧 Settings & Controls")
-
-# File uploads in sidebar\logo_up = st.sidebar.file_uploader("Logo (png/jpg)", type=["png","jpg","jpeg"])
-bg_up   = st.sidebar.file_uploader("Background (img/gif/mp4)", type=["png","jpg","jpeg","gif","mp4"])
-csv_up  = st.sidebar.file_uploader("Participants CSV", type=["csv"])
-dr_up   = st.sidebar.file_uploader("Drumroll Sound", type=["mp3","wav"])
-cr_up   = st.sidebar.file_uploader("Crash Sound", type=["mp3","wav"])
-ap_up   = st.sidebar.file_uploader("Applause Sound", type=["mp3","wav"])
-
-# Display columns
 display_cols = st.sidebar.multiselect(
-    "Display Columns", ["ID","Name","Account"],
-    default=saved.get('display_cols', ["ID","Name","Account"]), key='disp'
+    "Display Columns", ["ID", "Name", "Account"],
+    default=["Name", "Account"],
+    key="display_cols"
 )
-show_id = "ID" in display_cols
-show_name = "Name" in display_cols
-show_account = "Account" in display_cols
 
-# Animation and draw settings
-animation      = st.sidebar.selectbox("Animation Style", ["Scrolling","Rolodex","Letter-by-Letter"], index=["Scrolling","Rolodex","Letter-by-Letter"].index(saved.get('animation','Scrolling')))
-rolodex_speed  = st.sidebar.slider("Rolodex Scroll Speed", 1, 50, saved.get('rolodex_speed', 10))
-rolodex_interval = st.sidebar.slider("Rolodex Interval (ms)", 50, 500, saved.get('rolodex_interval', 200))
-draw_duration  = st.sidebar.slider("Draw Duration (sec)", 5, 60, saved.get('draw_duration', 15))
-winner_count   = st.sidebar.slider("Number of Winners", 1, 10, saved.get('winner_count', 3))
-font_size      = st.sidebar.slider("Font Size (px)", 20, 120, saved.get('font_size', 48))
-font_color     = st.sidebar.color_picker("Font Color", saved.get('font_color', '#FFFFFF'))
-logo_width     = st.sidebar.slider("Logo Width (px)", 50, 500, saved.get('logo_width',150))
-show_left_timer = st.sidebar.checkbox("Show Left Timer", saved.get('show_left_timer', True))
-show_right_timer= st.sidebar.checkbox("Show Right Timer", saved.get('show_right_timer', True))
+start_draw = st.sidebar.button("🎲 Start Draw")
 
-# Actions
-start_draw = st.sidebar.button("🎲 Start Draw", key='start')
-export_btn = st.sidebar.button("📥 Export Winners CSV", key='export')
-save_btn   = st.sidebar.button("💾 Save Settings", key='save')
+# --- Utility for backgrounds ---
+def get_b64(file):
+    return base64.b64encode(file.read()).decode()
 
-if save_btn:
-    save_settings({
-        'display_cols': display_cols,
-        'animation': animation,
-        'rolodex_speed': rolodex_speed,
-        'rolodex_interval': rolodex_interval,
-        'draw_duration': draw_duration,
-        'winner_count': winner_count,
-        'font_size': font_size,
-        'font_color': font_color,
-        'logo_width': logo_width,
-        'show_left_timer': show_left_timer,
-        'show_right_timer': show_right_timer
-    })
-    st.sidebar.success("Settings saved!")
+def inject_background(bg_file):
+    ext = bg_file.name.split(".")[-1].lower()
+    b64 = get_b64(bg_file)
+    if ext == "mp4":
+        st.markdown(
+            f"""<video autoplay loop muted playsinline
+                style="position:fixed;right:0;bottom:0;min-width:100vw;min-height:100vh;z-index:0;object-fit:cover;">
+                <source src="data:video/mp4;base64,{b64}" type="video/mp4">
+            </video>""", unsafe_allow_html=True)
+    else:
+        st.markdown(
+            f"""<div style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;
+            background: url('data:image/{ext};base64,{b64}') no-repeat center center fixed;
+            background-size:cover;opacity:1;"></div>""", unsafe_allow_html=True)
 
-# CSS for layout
-st.markdown(f"""
-<style>
-.draw-container {{ position: relative; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }}
-.background-img, .background-vid {{ position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }}
-.logo-img {{ position: absolute; top: 10px; left: 10px; width: {logo_width}px; z-index: 2; }}
-.winner-backdrop {{ position: relative; z-index: 3; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; }}
-.winner-name {{ font-size: {font_size}px; color: {font_color}; margin: 0; z-index: 4; }}
-.timer-left {{ position: absolute; left: 20px; top: 50%; transform: translateY(-50%); z-index: 3; color: {font_color}; font-size: 24px; }}
-.timer-right {{ position: absolute; right: 20px; top: 50%; transform: translateY(-50%); z-index: 3; color: {font_color}; font-size: 24px; }}
-</style>
-""", unsafe_allow_html=True)
+def inject_logo(logo_file, width):
+    ext = logo_file.name.split(".")[-1].lower()
+    b64 = get_b64(logo_file)
+    st.markdown(
+        f"""<img src="data:image/{ext};base64,{b64}"
+        style="position:absolute;top:30px;left:50%;transform:translateX(-50%);
+        z-index:3;width:{width}px;max-width:40vw;">""", unsafe_allow_html=True)
 
-# Placeholders for dynamic content
-scroll_ph = st.empty()
-audio_ph  = st.empty()
+def get_column(df, options):
+    for o in options:
+        c = next((col for col in df.columns if col.lower() == o.lower()), None)
+        if c: return c
+    return None
 
-# Export winners
-if export_btn and os.path.exists(WINNERS_FILE):
-    with open(WINNERS_FILE, 'rb') as f:
-        st.sidebar.download_button("Download Winners CSV", f, file_name="winners.csv")
+# --- Main draw logic ---
+if start_draw:
+    if uploaded_bg:
+        inject_background(uploaded_bg)
+    if uploaded_logo:
+        inject_logo(uploaded_logo, logo_width)
 
-# Draw logic
-if start_draw and csv_up:
-    # Load participants
-    df = pd.read_csv(csv_up)
-    cols = df.columns.str.lower()
-    id_col = next((c for c in df.columns if c.lower()=='id'), None)
-    name_col= next((c for c in df.columns if c.lower()=='name'), None)
-    acc_col = next((c for c in df.columns if 'account' in c.lower()), None)
+    # --- Data prep ---
+    if not uploaded_csv:
+        st.error("Please upload a CSV with player info.")
+        st.stop()
+    df = pd.read_csv(uploaded_csv)
+    name_col = get_column(df, ["name"])
+    id_col = get_column(df, ["id"])
+    acc_col = get_column(df, ["account", "account id", "account name"])
+
     if not name_col:
-        st.error("CSV must include a 'Name' column.")
+        st.error("CSV must contain a 'name' column (case-insensitive).")
         st.stop()
 
-    # Encode assets
-    drum_b64, drum_ext = encode_file(dr_up)
-    crash_b64, crash_ext = encode_file(cr_up)
-    applause_b64, applause_ext = encode_file(ap_up)
-    bg_b64, bg_ext     = encode_file(bg_up)
-    logo_b64, logo_ext = encode_file(logo_up)
+    display_cols_found = []
+    if "ID" in display_cols and id_col: display_cols_found.append(id_col)
+    if "Name" in display_cols: display_cols_found.append(name_col)
+    if "Account" in display_cols and acc_col: display_cols_found.append(acc_col)
 
-    # Drumroll
-    if drum_b64:
-        audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/{drum_ext};base64,{drum_b64}'></audio>", unsafe_allow_html=True)
+    names = df[name_col].dropna().astype(str).tolist()
+    winners_df = df.sample(n=winner_count)
+    winner_lines = []
+    for _, row in winners_df.iterrows():
+        line = " | ".join(str(row[c]) for c in display_cols_found)
+        winner_lines.append(line)
+    winners_str = "<br>".join(winner_lines)
 
-    participants = df[name_col].dropna().tolist()
-    start_time = time.time()
+    # --- Placeholders ---
+    container = st.empty()
+    timer_left_ph = st.empty() if show_timer_left else None
+    timer_right_ph = st.empty() if show_timer_right else None
 
-    # Main loop
-    while time.time() - start_time < draw_duration:
-        remaining = draw_duration - (time.time() - start_time)
-        left_timer = f"<div class='timer-left'>⏳ {remaining:.1f}s</div>" if show_left_timer else ''
-        right_timer= f"<div class='timer-right'>⏳ {remaining:.1f}s</div>" if show_right_timer else ''
+    # --- Animation logic ---
+    t_end = time.time() + draw_time
+    last_time = None
+    name_i = 0
+    while time.time() < t_end:
+        t_remain = t_end - time.time()
+        show_time = f"<div style='color:#FFD700;font-size:2em;font-weight:bold;text-shadow:2px 2px 4px #000'>{t_remain:.1f}s</div>"
 
-        # Background & Logo HTML
-        bg_html = ''
-        if bg_b64:
-            if bg_ext in ['mp4','webm']:
-                bg_html = f"<video autoplay loop muted class='background-vid'><source src='data:video/{bg_ext};base64,{bg_b64}' type='video/{bg_ext}'></video>"
-            else:
-                bg_html = f"<img src='data:image/{bg_ext};base64,{bg_b64}' class='background-img'>"
-        logo_html = f"<img src='data:image/{logo_ext};base64,{logo_b64}' class='logo-img'>" if logo_b64 else ''
+        # Timer left/right
+        if timer_left_ph: timer_left_ph.markdown(
+            f"<div style='position:fixed;left:20px;top:50%;transform:translateY(-50%);z-index:4'>{show_time}</div>", unsafe_allow_html=True)
+        if timer_right_ph: timer_right_ph.markdown(
+            f"<div style='position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:4'>{show_time}</div>", unsafe_allow_html=True)
 
         # Animation styles
-        if animation == 'Scrolling':
-            current = random.choice(participants)
-            anim_html = f"<div class='winner-name'>{current}</div>"
-            sleep_t = 0.1
-        elif animation == 'Rolodex':
-            current = random.choice(participants)
-            mh = font_size + 20
-            anim_html = f"<marquee direction='up' scrollamount='{rolodex_speed}' height='{mh}px'><span class='winner-name'>{current}</span></marquee>"
-            sleep_t = rolodex_interval / 1000
-        else:  # Letter-by-Letter
-            current = random.choice(participants)
-            for i in range(1, len(current)+1):
-                scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}{left_timer}{right_timer}<div class='winner-backdrop'><div class='winner-name'>{current[:i]}</div></div></div>", unsafe_allow_html=True)
-                time.sleep(0.05)
-            continue
+        if animation == "Scrolling":
+            display_name = random.choice(names)
+            draw_html = f"""
+            <div style="position:relative;height:100vh;display:flex;align-items:center;justify-content:center;z-index:2;">
+                <div style="background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity});padding:24px 48px;border-radius:12px;">
+                    <span style="font-size:{font_size}px;color:{font_color};font-weight:bold;">{display_name}</span>
+                </div>
+            </div>
+            """
+        elif animation == "Rolodex":
+            # Cycle through names at custom speed/interval
+            display_name = names[name_i % len(names)]
+            draw_html = f"""
+            <div style="position:relative;height:100vh;display:flex;align-items:center;justify-content:center;z-index:2;">
+                <div style="background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity});padding:24px 48px;border-radius:12px;">
+                    <span style="font-size:{font_size}px;color:{font_color};font-weight:bold;">{display_name}</span>
+                </div>
+            </div>
+            """
+            name_i += 1
+            time.sleep(rolodex_interval/1000)
+            container.markdown(draw_html, unsafe_allow_html=True)
+            continue  # Only update interval
+        elif animation == "Letter-by-Letter":
+            # Random name, reveal char by char
+            target = random.choice(names)
+            chars = int(((draw_time-t_remain)/draw_time)*len(target))
+            display = target[:max(1,chars)]
+            draw_html = f"""
+            <div style="position:relative;height:100vh;display:flex;align-items:center;justify-content:center;z-index:2;">
+                <div style="background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity});padding:24px 48px;border-radius:12px;">
+                    <span style="font-size:{font_size}px;color:{font_color};font-weight:bold;">{display}</span>
+                </div>
+            </div>
+            """
+        elif animation == "Fade In":
+            display_name = random.choice(names)
+            draw_html = f"""
+            <div style="position:relative;height:100vh;display:flex;align-items:center;justify-content:center;z-index:2;">
+                <div style="background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity});padding:24px 48px;border-radius:12px;animation:fadein 0.5s;">
+                    <span style="font-size:{font_size}px;color:{font_color};font-weight:bold;">{display_name}</span>
+                </div>
+            </div>
+            <style>@keyframes fadein{{from{{opacity:0}}to{{opacity:1}}}}</style>
+            """
+        elif animation == "Slide In":
+            display_name = random.choice(names)
+            draw_html = f"""
+            <div style="position:relative;height:100vh;display:flex;align-items:center;justify-content:center;z-index:2;">
+                <div style="background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity});padding:24px 48px;border-radius:12px;animation:slidein 0.5s;">
+                    <span style="font-size:{font_size}px;color:{font_color};font-weight:bold;">{display_name}</span>
+                </div>
+            </div>
+            <style>@keyframes slidein{{from{{transform:translateX(-100vw)}}to{{transform:translateX(0)}}}}</style>
+            """
+        container.markdown(draw_html, unsafe_allow_html=True)
+        time.sleep(0.1)
 
-        # Render frame
-        scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}{left_timer}{right_timer}{anim_html}</div>", unsafe_allow_html=True)
-        time.sleep(sleep_t)
-
-    # Stop drumroll
-    audio_ph.empty()
-
-    # Play crash + applause
-    if crash_b64:
-        st.markdown(f"<audio autoplay><source src='data:audio/{crash_ext};base64,{crash_b64}'></audio>", unsafe_allow_html=True)
-    if applause_b64:
-        st.markdown(f"<audio autoplay><source src='data:audio/{applause_ext};base64,{applause_b64}'></audio>", unsafe_allow_html=True)
-
-    # Final Winners
-    selected = df.sample(n=winner_count)
-    lines = []
-    for _, row in selected.iterrows():
-        parts = []
-        if show_id and id_col:
-            parts.append(str(row[id_col]))
-        if show_name:
-            parts.append(str(row[name_col]))
-        if show_account and acc_col:
-            parts.append(str(row[acc_col]))
-        lines.append(" | ".join(parts))
-    final_html = f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{'<br>'.join(lines)}</div></div></div>"
-    scroll_ph.markdown(final_html, unsafe_allow_html=True)
-
-    # Save winners CSV
-    selected.to_csv(WINNERS_FILE, index=False)
+    # --- Reveal winners ---
+    winner_html = f"""
+    <div style="position:relative;height:100vh;display:flex;align-items:center;justify-content:center;z-index:2;">
+        <div style="background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity});padding:28px 56px;border-radius:16px;">
+            <span style="font-size:{font_size+12}px;color:{font_color};font-weight:bold;">🎉<br>{winners_str}<br>🎉</span>
+        </div>
+    </div>
+    """
+    container.markdown(winner_html, unsafe_allow_html=True)
+    st.balloons()
