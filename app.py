@@ -146,11 +146,19 @@ if start_draw and csv_up:
     if dr_up:
         drum_b64 = base64.b64encode(dr_up.read()).decode()
 
-    # Play drumroll
+        # Play drumroll
     if drum_b64:
         audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{drum_b64}'></audio>", unsafe_allow_html=True)
 
-    names = df[name_col].dropna().tolist()
+    # Pre-load crash and applause
+    crash_b64 = None
+    applause_b64 = None
+    if cr_up:
+        crash_b64 = base64.b64encode(cr_up.read()).decode()
+    if ap_up:
+        applause_b64 = base64.b64encode(ap_up.read()).decode()
+
+    names = df[name_col].dropna().tolist()].dropna().tolist()
     start = time.time()
     while time.time() - start < draw_duration:
         rem = draw_duration - (time.time() - start)
@@ -194,13 +202,13 @@ if start_draw and csv_up:
         )
         time.sleep(sleep_t)
 
-    # Stop drumroll and play end sounds
+        # Stop drumroll
     audio_ph.empty()
-    if cr_up:
-        crash_b64 = base64.b64encode(cr_up.read()).decode()
+    # Play crash sound
+    if crash_b64:
         st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{crash_b64}'></audio>", unsafe_allow_html=True)
-    if ap_up:
-        applause_b64 = base64.b64encode(ap_up.read()).decode()
+    # Play applause sound
+    if applause_b64:
         st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{applause_b64}'></audio>", unsafe_allow_html=True)
 
     # Final winners
