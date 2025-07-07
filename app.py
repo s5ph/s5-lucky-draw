@@ -179,9 +179,9 @@ if start_draw and csv_up:
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
         elif animation == 'Rolodex':
-            # Rolodex: high-speed marquee of random names
-            name = random.choice(names)
-            name_html = f"<marquee scrollamount='20'><div class='winner-name'>{name}</div></marquee>"
+            # Rolodex: vertical marquee of all names
+            marquee_items = ''.join([f"<div class='winner-name'>{n}</div>" for n in names])
+            name_html = f"<marquee direction='up' scrollamount='5'>{marquee_items}</marquee>"
         elif animation == 'Letter-by-Letter':
             full = random.choice(names)
             for i in range(1, len(full)+1):
