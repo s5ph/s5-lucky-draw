@@ -168,38 +168,47 @@ if start_draw and csv_up:
     if not mute_audio and dr_path and os.path.exists(dr_path):
         ddata = base64.b64encode(open(dr_path,'rb').read()).decode()
         audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{ddata}'></audio>", unsafe_allow_html=True)
-    # animation loop
+        # animation loop
     names = df[name_col].dropna().tolist()
-    start = time.time()
-    while time.time() - start < draw_duration:
-        elapsed = time.time() - start
+    start_time = time.time()
+    while time.time() - start_time < draw_duration:
+        elapsed = time.time() - start_time
         rem = draw_duration - elapsed
-        # select name based on animation
-        style = ''
+        # pick name based on animation
         if animation == 'Scrolling':
             name = random.choice(names)
+            name_html = f"<marquee scrollamount='5'>{name}</marquee>"
         elif animation == 'Rolodex':
             idx = int(elapsed / (draw_duration/len(names))) % len(names)
             name = names[idx]
+            name_html = f"<marquee direction='up' scrollamount='5' height='50'>{name}</marquee>"
         elif animation == 'Letter-by-Letter':
             full = random.choice(names)
             for i in range(1, len(full)+1):
-                scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>", unsafe_allow_html=True)
+                scroll_ph.markdown(
+                    f"<div class='draw-container'>{bg_html}{logo_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>",
+                    unsafe_allow_html=True
+                )
                 time.sleep(0.05)
             continue
         elif animation == 'Fade In':
             name = random.choice(names)
-            style = 'fade'
+            name_html = f"<div class='winner-name fade'>{name}</div>"
         elif animation == 'Slide In':
             name = random.choice(names)
-            style = 'slide'
+            name_html = f"<div class='winner-name slide'>{name}</div>"
         else:
             name = random.choice(names)
+            name_html = f"<div class='winner-name'>{name}</div>"
         # timers
         left_html = f"<div class='timer-left'>⏳ {rem:.1f}s</div>" if show_left_timer else ''
         right_html = f"<div class='timer-right'>⏳ {rem:.1f}s</div>" if show_right_timer else ''
-        # render frame
-        scroll_ph.markdown(f"<div class='draw-container'>{bg_html}{logo_html}{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name {style}'>{name}</div></div></div>", unsafe_allow_html=True)
+        # render frame with animation effect
+        scroll_ph.markdown(
+            f"<div class='draw-container'>{bg_html}{logo_html}{left_html}{right_html}" +
+            f"<div class='winner-backdrop'>{name_html}</div></div>",
+            unsafe_allow_html=True
+        )
         time.sleep(0.1)
     # final winners
     winners = df.sample(n=winner_count)
