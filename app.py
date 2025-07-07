@@ -56,116 +56,45 @@ show_name = "Name" in display_cols
 show_account = "Account" in display_cols
 
 st.sidebar.markdown("---")
-# Animation Style
-animation = st.sidebar.selectbox("Animation Style", ["Scrolling","Rolodex","Letter-by-Letter","Fade In","Slide In"], index=["Scrolling","Rolodex","Letter-by-Letter","Fade In","Slide In"].index(saved.get('animation','Scrolling')), key="animation")
-
-# Appearance
-font_size = st.sidebar.slider("Font Size (px)", 20, 120, saved.get('font_size',48), key="font_size")
-font_color = st.sidebar.color_picker("Font Color", saved.get('font_color','#FFFFFF'), key="font_color")
-winner_count = st.sidebar.slider("Number of Winners",1,10,saved.get('winner_count',3), key="winner_count")
-draw_duration = st.sidebar.slider("Draw Duration (sec)",5,60,saved.get('draw_duration',15), key="draw_duration")
-show_left_timer = st.sidebar.checkbox("Left Timer", saved.get('show_left_timer',True), key="show_left_timer")
-show_right_timer = st.sidebar.checkbox("Right Timer", saved.get('show_right_timer',True), key="show_right_timer")
-
-st.sidebar.markdown("---")
-start_btn = st.sidebar.button("🎲 Start Draw")
-export_btn = st.sidebar.button("📥 Export Winners", key="export_btn")
-
-# Save Settings
-def _save():
-    save_settings({
-        'display_cols': display_cols,'animation': animation,
-        'font_size': font_size,'winner_count': winner_count,'draw_duration': draw_duration,
-        'show_left_timer': show_left_timer,'show_right_timer': show_right_timer
-    })
-if st.sidebar.button("💾 Save Settings"):
-    _save()
-    st.sidebar.success("Settings saved!")
-
-# CSS
-st.markdown(f"""
-<style>
-html, body, [data-testid='stApp'] {{ margin:0; padding:0; height:100%; }}
-.draw-container {{ display:flex; align-items:center; justify-content:center; position:relative; width:100%; height:100vh; }}
-.background-img, .background-vid {{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0.5; z-index:0; }}
-.logo-img {{ position:absolute; top:10px; left:10px; width:{font_size*2}px; z-index:2; }}
-.winner-backdrop {{ display:inline-block; padding:10px; background:rgba(0,0,0,0.5); border-radius:10px; z-index:3; }}
-.winner-name {{ font-size:{font_size}px; color:{font_color}; margin:0; z-index:4; font-weight:bold; }}
-.timer-left {{ position:absolute; left:20px; top:50%; transform:translateY(-50%); font-size:24px; color:{font_color}; z-index:3; }}
-.timer-right {{ position:absolute; right:20px; top:50%; transform:translateY(-50%); font-size:24px; color:{font_color}; z-index:3; }}
-</style>
-""", unsafe_allow_html=True)
-
-# Placeholders
-bg_ph = st.empty()
-logo_ph = st.empty()
-scroll_ph = st.empty()
-left_ph = st.empty()
-right_ph = st.empty()
-audio_ph = st.empty()
-
-# Draw Logic
-if start_btn and csv_up:
-    df = pd.read_csv(csv_up)
-    # Detect columns
-    id_col = next((c for c in df.columns if c.lower()=='id'), None)
-    name_col = next((c for c in df.columns if c.lower()=='name'), None)
-    acc_col = next((c for c in df.columns if 'account' in c.lower()), None)
-    if not name_col:
-        st.error("CSV must contain a 'Name' column.")
-        st.stop()
-    # Load assets
-        # Background
-    bg_path = save_file(bg_up, 'background')
-    if bg_path and os.path.exists(bg_path):
-        ext = bg_path.split('.')[-1].lower()
-        data = base64.b64encode(open(bg_path,'rb').read()).decode()
-        if ext in ['mp4','webm']:
-            bg_ph.markdown(
-                f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>",
-                unsafe_allow_html=True
-            )
-        else:
-            bg_ph.markdown(
-                f"<img src='data:image/{ext};base64,{data}' class='background-img'>",
-                unsafe_allow_html=True
-            )
-    # Logo
-    path = save_file(logo_up, 'logo')
-    if path:
-        ext = path.split('.')[-1]
-        data = base64.b64encode(open(path,'rb').read()).decode()
-        logo_ph.markdown(f"<img src='data:image/{ext};base64,{data}' class='logo-img'>", unsafe_allow_html=True)
-    # Drumroll
-    path = save_file(dr_up, 'drumroll')
-    if path:
-        ddata = base64.b64encode(open(path,'rb').read()).decode()
-        audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{ddata}'></audio>", unsafe_allow_html=True)
-
-    names = df[name_col].dropna().tolist()
-    start = time.time()
-    while time.time() - start < draw_duration:
-        rem = draw_duration - (time.time() - start)
-        left_html = f"<div class='timer-left'>⏳ {rem:.1f}s</div>" if show_left_timer else ''
-        right_html = f"<div class='timer-right'>⏳ {rem:.1f}s</div>" if show_right_timer else ''
         # Animation
         if animation == 'Scrolling':
             name = random.choice(names)
             name_html = f"<div class='winner-name'>{name}</div>"
-                elif animation == 'Rolodex':
+        elif animation == 'Rolodex':
             # Rolodex: single vertical marquee of one random name
             name = random.choice(names)
-            # calculate marquee height to match text and padding
-            marquee_height = font_size + backdrop_padding * 2
+            marquee_height = font_size + 20  # approximate backdrop padding
             name_html = (
-                f"<marquee direction='up' scrollamount='10' height='{marquee_height}px' loop='true'>"
+                f"<marquee direction='up' scrollamount='10' height='{marquee_height}px'>"
                 f"<span class='winner-name'>{name}</span>"
                 f"</marquee>"
             )
         elif animation == 'Letter-by-Letter':
             full = random.choice(names)
-            for i in range(1, len(full)+1):
-                scroll_ph.markdown(f"<div class='draw-container'>{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>", unsafe_allow_html=True)
+            for i in range(1, len(full) + 1):
+                scroll_ph.markdown(
+                    f"<div class='draw-container'>{left_html}{right_html}" +
+                    f"<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>",
+                    unsafe_allow_html=True
+                )
+                time.sleep(0.05)
+            continue
+        elif animation == 'Fade In':
+            name = random.choice(names)
+            name_html = f"<div class='winner-name fade'>{name}</div>"
+        elif animation == 'Slide In':
+            name = random.choice(names)
+            name_html = f"<div class='winner-name slide'>{name}</div>"
+        else:
+            name = random.choice(names)
+            name_html = f"<div class='winner-name'>{name}</div>"
+
+        # Render frame
+        scroll_ph.markdown(
+            f"<div class='draw-container'>{left_html}{right_html}" +
+            f"<div class='winner-backdrop'>{name_html}</div></div>",
+            unsafe_allow_html=True
+        )(f"<div class='draw-container'>{left_html}{right_html}<div class='winner-backdrop'><div class='winner-name'>{full[:i]}</div></div></div>", unsafe_allow_html=True)
                 time.sleep(0.05)
             continue
         elif animation == 'Fade In':
