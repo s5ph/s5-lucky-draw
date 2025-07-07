@@ -51,10 +51,11 @@ crash_up = st.sidebar.file_uploader("Crash Sound", type=["mp3","wav"], key="cras
 applause_up = st.sidebar.file_uploader("Applause Sound", type=["mp3","wav"], key="applause_up")
 
 st.sidebar.markdown("---")
-# Display columns
+# Display columns (unique)
 display_cols = st.sidebar.multiselect(
     "Display Columns", ["ID", "Name", "Account"],
-    default=[c for c in ["ID","Name","Account"] if saved.get(f'show_{c.lower()}', True)]
+    default=[c for c in ["ID","Name","Account"] if saved.get(f'show_{c.lower()}', True)],
+    key="display_cols"
 )
 show_id = "ID" in display_cols
 show_name = "Name" in display_cols
