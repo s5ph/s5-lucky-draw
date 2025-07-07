@@ -25,14 +25,15 @@ def save_file(upload, name):
         f.write(upload.getbuffer())
     return path
 
-# Load/save persistent settings
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
-        return json.load(open(SETTINGS_FILE))
+        with open(SETTINGS_FILE, 'r') as f:
+            return json.load(f)
     return {}
 
 def save_settings(settings):
-    json.dump(settings, open(SETTINGS_FILE, 'w'))
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f)
 
 # --- Sidebar Controls ---
 saved = load_settings()
@@ -78,7 +79,8 @@ start_draw = st.sidebar.button("🎲 Start Draw")
 export_csv = st.sidebar.button("📥 Export Winners CSV")
 save_btn = st.sidebar.button("💾 Save Settings")
 
-# Save sidebar settings\if save_btn:
+# Save sidebar settings
+if save_btn:
     save_settings({
         "show_id": show_id,
         "show_name": show_name,
@@ -117,7 +119,8 @@ dr_path = save_file(drum_up, "drumroll")
 cr_path = save_file(crash_up, "crash")
 ap_path = save_file(applause_up, "applause")
 
-# Export winners file\if export_csv and os.path.exists(WINNERS_FILE):
+# Export winners file
+if export_csv and os.path.exists(WINNERS_FILE):
     with open(WINNERS_FILE, 'rb') as f:
         st.sidebar.download_button("Download Winners", f, file_name="winners.csv")
 
@@ -131,59 +134,83 @@ audio_placeholder = st.empty()
 # --- Draw Logic ---
 if start_draw and csv_up:
     df = pd.read_csv(csv_up)
-    # Detect columns\ n    id_col   = next((c for c in df.columns if c.lower()=="id"), None)
-    name_col = next((c for c in df.columns if c.lower()=="name"), None)
-    acc_col  = next((c for c in df.columns if "account" in c.lower()), None)
+    id_col = next((c for c in df.columns if c.lower() == 'id'), None)
+    name_col = next((c for c in df.columns if c.lower() == 'name'), None)
+    acc_col = next((c for c in df.columns if 'account' in c.lower()), None)
     if not name_col:
         st.error("CSV must contain a 'Name' column.")
         st.stop()
 
     # Display background
-    if bg_path:
+    if bg_path and os.path.exists(bg_path):
         ext = bg_path.split('.')[-1].lower()
         data = base64.b64encode(open(bg_path,'rb').read()).decode()
         if ext in ['mp4','webm']:
-            bg_placeholder.markdown(f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>", unsafe_allow_html=True)
+            bg_placeholder.markdown(
+                f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}' type='video/{ext}'></video>",
+                unsafe_allow_html=True
+            )
         else:
-            bg_placeholder.markdown(f"<img src='data:image/{ext};base64,{data}' class='background-img'>", unsafe_allow_html=True)
-
+            bg_placeholder.markdown(
+                f"<img src='data:image/{ext};base64,{data}' class='background-img'>",
+                unsafe_allow_html=True
+            )
     # Display logo
-    if logo_path:
+    if logo_path and os.path.exists(logo_path):
         ext = logo_path.split('.')[-1].lower()
         data = base64.b64encode(open(logo_path,'rb').read()).decode()
-        logo_placeholder.markdown(f"<img src='data:image/{ext};base64,{data}' class='logo-img'>", unsafe_allow_html=True)
+        logo_placeholder.markdown(
+            f"<img src='data:image/{ext};base64,{data}' class='logo-img'>",
+            unsafe_allow_html=True
+        )
+    # Play drumroll
+    if not mute_audio and dr_path and os.path.exists(dr_path):
+        drum_data = base64.b64encode(open(dr_path,'rb').read()).decode()
+        audio_placeholder.markdown(
+            f"<audio autoplay loop><source src='data:audio/mp3;base64,{drum_data}' type='audio/mp3'></audio>",
+            unsafe_allow_html=True
+        )
 
-    # Play drumroll\ n    if not mute_audio and dr_path:
-        b = base64.b64encode(open(dr_path,'rb').read()).decode()
-        audio_placeholder.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{b}'></audio>", unsafe_allow_html=True)
-
-    # Scrolling
+    # Scrolling names effect
     names = df[name_col].dropna().tolist()
-    seq = names*2
+    seq = names * 2
     delay = draw_duration / len(seq)
     for n in seq:
-        scroll_placeholder.markdown(f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{n}</div></div></div>", unsafe_allow_html=True)
-        timer_placeholder.markdown(f"<div class='timer'>Drawing...</div>", unsafe_allow_html=True)
+        scroll_placeholder.markdown(
+            f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{n}</div></div></div>",
+            unsafe_allow_html=True
+        )
+        timer_placeholder.markdown(
+            f"<div class='timer'>Drawing...</div>",
+            unsafe_allow_html=True
+        )
         time.sleep(delay)
 
     # Final winners
     winners = df.sample(n=winner_count)
     audio_placeholder.empty()
-    if not mute_audio and cr_path:
-        b = base64.b64encode(open(cr_path,'rb').read()).decode()
-        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b}'></audio>", unsafe_allow_html=True)
-    if not mute_audio and ap_path:
-        b = base64.b64encode(open(ap_path,'rb').read()).decode()
-        st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b}'></audio>", unsafe_allow_html=True)
-
-    # Display winners
-    for _,r in winners.iterrows():
+    if not mute_audio and cr_path and os.path.exists(cr_path):
+        crash_data = base64.b64encode(open(cr_path,'rb').read()).decode()
+        st.markdown(
+            f"<audio autoplay><source src='data:audio/mp3;base64,{crash_data}' type='audio/mp3'></audio>",
+            unsafe_allow_html=True
+        )
+    if not mute_audio and ap_path and os.path.exists(ap_path):
+        applause_data = base64.b64encode(open(ap_path,'rb').read()).decode()
+        st.markdown(
+            f"<audio autoplay><source src='data:audio/mp3;base64,{applause_data}' type='audio/mp3'></audio>",
+            unsafe_allow_html=True
+        )
+    # Display each winner
+    for _, r in winners.iterrows():
         parts = []
         if show_id and id_col: parts.append(str(r[id_col]))
         if show_name: parts.append(str(r[name_col]))
         if show_account and acc_col: parts.append(str(r[acc_col]))
         text = " | ".join(parts)
-        scroll_placeholder.markdown(f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{text}</div></div></div>", unsafe_allow_html=True)
-
+        scroll_placeholder.markdown(
+            f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{text}</div></div></div>",
+            unsafe_allow_html=True
+        )
     timer_placeholder.empty()
     winners.to_csv(WINNERS_FILE, index=False)
