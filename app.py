@@ -195,3 +195,28 @@ if start_draw:
     """
     container.markdown(winner_html, unsafe_allow_html=True)
     st.balloons()
+uploaded_drumroll = st.sidebar.file_uploader("Upload Drumroll Sound", type=["mp3", "wav"])
+uploaded_crash = st.sidebar.file_uploader("Upload Crash Sound", type=["mp3", "wav"])
+uploaded_applause = st.sidebar.file_uploader("Upload Applause Sound", type=["mp3", "wav"])
+mute_audio = st.sidebar.checkbox("Mute Audio", value=False)
+def inject_audio(audio_file, loop=False):
+    ext = audio_file.name.split('.')[-1]
+    b64 = base64.b64encode(audio_file.read()).decode()
+    loop_attr = "loop" if loop else ""
+    st.markdown(
+        f"""<audio autoplay {loop_attr}>
+            <source src="data:audio/{ext};base64,{b64}" type="audio/{ext}">
+        </audio>""",
+        unsafe_allow_html=True
+    )
+if uploaded_drumroll and not mute_audio:
+    inject_audio(uploaded_drumroll, loop=True)
+st.markdown("""<script>
+var auds = document.getElementsByTagName('audio');
+for (var i=0; i<auds.length; i++) {{ auds[i].pause(); auds[i].currentTime = 0; }}
+</script>""", unsafe_allow_html=True)
+
+if uploaded_crash and not mute_audio:
+    inject_audio(uploaded_crash)
+if uploaded_applause and not mute_audio:
+    inject_audio(uploaded_applause)
