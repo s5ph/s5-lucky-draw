@@ -95,16 +95,18 @@ if save_btn:
     st.sidebar.success("Settings saved!")
 
 # --- Styles ---
-st.markdown(f"""
+# Inject CSS with escaped braces to avoid f-string errors
+css = f"""
 <style>
-.draw-container { display: flex; align-items: center; justify-content: center; position: relative; width:100%; height:100vh; margin:0; padding:0; }
-.background-img, .background-vid { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0.5; z-index:0; }
-.logo-img { position:absolute; top:10px; left:10px; width:{logo_width}px; z-index:2; }
-.winner-backdrop { display:inline-block; padding:{backdrop_padding}px; background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity}); border-radius:10px; z-index:3; }
-.winner-name { font-size:{font_size}px; color:{font_color}; margin:0; z-index:4; font-weight:bold; }
-.timer { font-size:24px; color:{font_color}; margin:0; z-index:3; }
+.draw-container {{ display: flex; align-items: center; justify-content: center; position: relative; width:100%; height:100vh; margin:0; padding:0; }}
+.background-img, .background-vid {{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0.5; z-index:0; }}
+.logo-img {{ position:absolute; top:10px; left:10px; width:{logo_width}px; z-index:2; }}
+.winner-backdrop {{ display:inline-block; padding:{backdrop_padding}px; background:rgba({int(backdrop_color[1:3],16)},{int(backdrop_color[3:5],16)},{int(backdrop_color[5:],16)},{backdrop_opacity}); border-radius:10px; z-index:3; }}
+.winner-name {{ font-size:{font_size}px; color:{font_color}; margin:0; z-index:4; font-weight:bold; }}
+.timer {{ font-size:24px; color:{font_color}; margin:0; z-index:3; }}
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(css, unsafe_allow_html=True)
 
 # --- Asset Persistence ---
 logo_path = save_file(logo_up, 'logo')
