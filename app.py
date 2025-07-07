@@ -39,7 +39,9 @@ def save_settings(s):
 # --- Sidebar ---
 saved = load_settings()
 st.sidebar.title("🔧 Settings & Controls")
-# Uploads\logo_up = st.sidebar.file_uploader("Logo (png/jpg)", type=["png","jpg","jpeg"])
+# Uploads
+logo_up = st.sidebar.file_uploader("Logo (png/jpg)", type=["png","jpg","jpeg"])
+
 bg_up = st.sidebar.file_uploader("Background (img/gif/mp4)", type=["png","jpg","jpeg","gif","mp4"])
 csv_up = st.sidebar.file_uploader("Participants CSV", type=["csv"])
 dr_up = st.sidebar.file_uploader("Drumroll Sound", type=["mp3","wav"])
