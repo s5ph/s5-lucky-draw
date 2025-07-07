@@ -124,61 +124,80 @@ if export and os.path.exists(WINNERS_FILE):
 # --- Run Draw Logic ---
 if start and csv_upload is not None:
     df = pd.read_csv(csv_upload)
-    # Detect columns case-insensitive
     id_col = next((c for c in df.columns if c.lower() == 'id'), None)
     name_col = next((c for c in df.columns if c.lower() == 'name'), None)
     acc_col = next((c for c in df.columns if 'account' in c.lower()), None)
     if df.empty or name_col is None:
         st.error("CSV must contain a 'Name' column.")
     else:
-        ids = df[id_col] if id_col else None
-        acc = df[acc_col] if acc_col else None
-        # placeholders
+        # Prepare placeholders
         disp = st.empty()
         timer = st.empty()
         audio_ph = st.empty()
-        # show background
-        if bg_path:
-            ext = bg_path.split('.')[-1].lower()
-            data = base64.b64encode(open(bg_path,'rb').read()).decode()
-            if ext in ['mp4','webm']:
-                disp.markdown(f"<video autoplay loop muted class='background-vid'><source src='data:video/{ext};base64,{data}'></video>", unsafe_allow_html=True)
+        # Load background bytes
+        if bg_upload:
+            bg_bytes = bg_upload.read()
+            b_ext = bg_upload.name.split('.')[-1].lower()
+        elif bg_path and os.path.exists(bg_path):
+            bg_bytes = open(bg_path,'rb').read()
+            b_ext = bg_path.split('.')[-1].lower()
+        else:
+            bg_bytes = None
+            b_ext = None
+        # Load logo bytes
+        if logo_upload:
+            logo_bytes = logo_upload.read()
+            l_ext = logo_upload.name.split('.')[-1].lower()
+        elif logo_path and os.path.exists(logo_path):
+            logo_bytes = open(logo_path,'rb').read()
+            l_ext = logo_path.split('.')[-1].lower()
+        else:
+            logo_bytes = None
+            l_ext = None
+        # Display background and logo
+        if bg_bytes:
+            encoded_bg = base64.b64encode(bg_bytes).decode()
+            if b_ext in ['mp4','webm']:
+                disp.markdown(f"<video autoplay loop muted class='background-vid'><source src='data:video/{b_ext};base64,{encoded_bg}' type='video/{b_ext}'></video>", unsafe_allow_html=True)
             else:
-                disp.markdown(f"<img src='data:image/{ext};base64,{data}' class='background-img'>", unsafe_allow_html=True)
-        # show logo
-        if logo_path:
-            data = base64.b64encode(open(logo_path,'rb').read()).decode()
-            disp.markdown(f"<img src='data:image/png;base64,{data}' class='logo-img'>", unsafe_allow_html=True)
-        # drumroll
+                disp.markdown(f"<img src='data:image/{b_ext};base64,{encoded_bg}' class='background-img'>", unsafe_allow_html=True)
+        if logo_bytes:
+            encoded_logo = base64.b64encode(logo_bytes).decode()
+            disp.markdown(f"<img src='data:image/{l_ext};base64,{encoded_logo}' class='logo-img'>", unsafe_allow_html=True)
+        # Play drumroll
         if not mute_audio and drumroll_upload:
-            b64 = base64.b64encode(drumroll_upload.read()).decode()
-            audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{b64}'></audio>", unsafe_allow_html=True)
-        # scrolling effect
-        scroll_list = df[name_col].dropna().tolist()*2
-        delay = draw_time/len(scroll_list)
+            drum_bytes = drumroll_upload.read()
+            drum_b64 = base64.b64encode(drum_bytes).decode()
+            audio_ph.markdown(f"<audio autoplay loop><source src='data:audio/mp3;base64,{drum_b64}'></audio>", unsafe_allow_html=True)
+        # Scrolling effect
+        names = df[name_col].dropna().tolist()
+        scroll_list = names * 2
+        delay = draw_time / len(scroll_list)
         for n in scroll_list:
             disp.markdown(f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{n}</div></div></div>", unsafe_allow_html=True)
             timer.markdown(f"<div class='timer'>Drawing...</div>", unsafe_allow_html=True)
             time.sleep(delay)
-        # pick winners
+        # Select winners
         winners = df.sample(n=winner_count)
-        # stop drum
         audio_ph.empty()
-        # play crash and applause
+        # Crash & applause
         if not mute_audio and crash_upload:
-            b64 = base64.b64encode(crash_upload.read()).decode()
-            st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}'></audio>", unsafe_allow_html=True)
+            crash_b64 = base64.b64encode(crash_upload.read()).decode()
+            st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{crash_b64}'></audio>", unsafe_allow_html=True)
         if not mute_audio and applause_upload:
-            b64 = base64.b64encode(applause_upload.read()).decode()
-            st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{b64}'></audio>", unsafe_allow_html=True)
-        # display winners
-        for idx,row in winners.iterrows():
+            applause_b64 = base64.b64encode(applause_upload.read()).decode()
+            st.markdown(f"<audio autoplay><source src='data:audio/mp3;base64,{applause_b64}'></audio>", unsafe_allow_html=True)
+        # Display winners
+        for idx, row in winners.iterrows():
             parts = []
-            if show_id and ids is not None: parts.append(str(row['ID']))
-            if show_name: parts.append(str(row[name_col]))
-            if show_account and acc is not None: parts.append(str(row['Account Name']))
+            if show_id and id_col:
+                parts.append(str(row[id_col]))
+            if show_name:
+                parts.append(str(row[name_col]))
+            if show_account and acc_col:
+                parts.append(str(row[acc_col]))
             text = " | ".join(parts)
             disp.markdown(f"<div class='draw-container'><div class='winner-backdrop'><div class='winner-name'>{text}</div></div></div>", unsafe_allow_html=True)
         timer.empty()
-        # save winners
+        # Save winners
         winners.to_csv(WINNERS_FILE, index=False)
