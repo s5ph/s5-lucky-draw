@@ -19,7 +19,15 @@ os.makedirs(ASSETS_DIR, exist_ok=True)
 def encode_file(upload):
     if not upload:
         return None, None
-    data = upload.read()
+    # Read all bytes without consuming stream
+    if hasattr(upload, 'getvalue'):
+        data = upload.getvalue()
+    else:
+        data = upload.read()
+        try:
+            upload.seek(0)
+        except Exception:
+            pass
     ext = upload.name.split('.')[-1].lower()
     return base64.b64encode(data).decode(), ext
 
