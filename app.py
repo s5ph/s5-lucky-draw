@@ -143,10 +143,11 @@ save_settings({
 # Run draw when button is clicked
 if start_draw and csv_upload is not None:
     df = pd.read_csv(csv_upload)
-    if df.empty or "name" not in df.columns:
-        st.error("CSV must contain a 'name' column.")
+    name_col = next((col for col in df.columns if col.lower() == "name"), None)
+    if df.empty or name_col is None:
+        st.error("CSV must contain a 'name' column (case-insensitive).")
     else:
-        names = df['name'].dropna().tolist()
+        names = df[name_col].dropna().tolist()
         placeholder = st.empty()
         timer_placeholder = st.empty()
         audio_placeholder = st.empty()
@@ -177,10 +178,12 @@ if start_draw and csv_upload is not None:
             </audio>
             """, unsafe_allow_html=True)
 
-        for i in range(draw_duration, 0, -1):
-            timer_placeholder.markdown(f"<div class='timer'>Drawing in: {i} seconds...</div>", unsafe_allow_html=True)
-            placeholder.markdown(f"<div class='winner-backdrop'><div class='winner-name' style='color:{font_color}; font-size:{font_size}px;'>{random.choice(names)}</div></div>", unsafe_allow_html=True)
-            time.sleep(1)
+        scroll_names = names * 2  # for scrolling effect
+        step_delay = draw_duration / len(scroll_names)
+        for name in scroll_names:
+            timer_placeholder.markdown(f"<div class='timer'>Drawing...</div>", unsafe_allow_html=True)
+            placeholder.markdown(f"<div class='winner-backdrop'><div class='winner-name' style='color:{font_color}; font-size:{font_size}px;'>{name}</div></div>", unsafe_allow_html=True)
+            time.sleep(step_delay)
 
         winner_row = df.sample(1).iloc[0]
         winner_display = []
