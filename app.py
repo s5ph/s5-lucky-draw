@@ -177,8 +177,11 @@ if start_draw and csv_up:
         # pick name based on animation
         if animation == 'Scrolling':
             name = random.choice(names)
-            name_html = f"<marquee scrollamount='5'>{name}</marquee>"
+            name_html = f"<div class='winner-name'>{name}</div>"
         elif animation == 'Rolodex':
+            idx = int(elapsed / (draw_duration/len(names))) % len(names)
+            name = names[idx]
+            name_html = f"<marquee direction='up' scrollamount='5' height='50'><div class='winner-name'>{name}</div></marquee>"
             idx = int(elapsed / (draw_duration/len(names))) % len(names)
             name = names[idx]
             name_html = f"<marquee direction='up' scrollamount='5' height='50'>{name}</marquee>"
